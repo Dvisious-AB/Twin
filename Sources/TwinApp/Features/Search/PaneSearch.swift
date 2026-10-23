@@ -15,6 +15,7 @@ enum PaneSearch {
 struct PaneSearchField: View {
     @Binding var text: String
     var onFocusChange: (Bool) -> Void = { _ in }
+    var focusTrigger: Int = 0
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -27,6 +28,8 @@ struct PaneSearchField: View {
                 .font(.caption)
                 .focused($isFocused)
                 .onChange(of: isFocused) { _, focused in onFocusChange(focused) }
+                .onChange(of: focusTrigger) { _, _ in isFocused = true }
+                .onExitCommand { text = ""; isFocused = false }
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill")

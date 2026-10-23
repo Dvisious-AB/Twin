@@ -52,6 +52,9 @@ struct DualPaneView: View {
                 Button("Right") { selected = 1; paneFocus = 1 }
                     .keyboardShortcut("2", modifiers: .command)
                     .help("Activate right pane (Cmd+2)")
+                Button("Filter") { activePane.focusSearch() }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .help("Filter active pane (Cmd+F)")
                 Button("F5 Copy") {
                     Task { await activePane.copySelected(to: inactivePane.currentURL); inactivePane.refresh() }
                 }

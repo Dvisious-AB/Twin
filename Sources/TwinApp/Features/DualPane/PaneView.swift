@@ -19,8 +19,9 @@ struct PaneView: View {
             if viewModel.isPerformingOperation {
                 progressBar
             }
+            statusBar
         }
-        .border(isActive ? Color.accentColor : Color.clear, width: 1)
+        .border(isActive ? Color.accentColor : Color.clear, width: 2)
         .overlay {
             if viewModel.isDropTargeted {
                 RoundedRectangle(cornerRadius: 6)
@@ -70,22 +71,14 @@ struct PaneView: View {
                 .help("Refresh")
             }
 
-            HStack {
-                Text(viewModel.currentURL.path)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer()
-                Text("\(viewModel.filteredItems.count) items")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            PaneSearchField(text: $viewModel.searchText) { viewModel.isSearchEditing = $0 }
+            PaneSearchField(
+                text: $viewModel.searchText,
+                onFocusChange: { viewModel.isSearchEditing = $0 },
+                focusTrigger: viewModel.searchFocusTrigger
+            )
         }
         .padding(6)
-        .background(isActive ? Color.accentColor.opacity(0.1) : Color.clear)
+        .background(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
     }
 
     private var breadcrumbs: some View {
@@ -144,6 +137,22 @@ struct PaneView: View {
 
     @ViewBuilder
     private var paneContent: some View {
+        if !viewModel.searchText.isEmpty, viewModel.filteredItems.isEmpty,
+           !viewModel.loadState.isError, viewModel.loadState != .empty {
+            ContentUnavailableView {
+                Label("No Results", systemImage: "magnifyingglass")
+            } description: {
+                Text("Nothing in this folder matches \"\(viewModel.searchText)\".")
+            } actions: {
+                Button("Clear Filter") { viewModel.searchText = "" }
+            }
+        } else {
+            paneContentSwitch
+        }
+    }
+
+    @ViewBuilder
+    private var paneContentSwitch: some View {
         switch viewModel.viewMode {
         case .list:
             listView
@@ -152,25 +161,44 @@ struct PaneView: View {
         }
     }
 
+    @State private var sortOrder = [KeyPathComparator(\FileItem.name)]
+
+    private var sortedItems: [FileItem] {
+        viewModel.filteredItems.sorted(using: sortOrder)
+    }
+
     private var listView: some View {
-        List(viewModel.filteredItems, id: \.url, selection: $viewModel.selection) { item in
-            HStack {
-                Image(systemName: item.isDirectory ? "folder.fill" : "doc")
-                    .foregroundStyle(item.isDirectory ? .blue : .secondary)
-                Text(item.name)
-                    .lineLimit(1)
-                Spacer()
-                if !item.isDirectory {
-                    Text(ByteCountFormatter.string(fromByteCount: Int64(item.size), countStyle: .file))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Table(sortedItems, selection: $viewModel.selection, sortOrder: $sortOrder) {
+            TableColumn("Name", value: \.name) { item in
+                HStack(spacing: 6) {
+                    Image(systemName: item.isDirectory ? "folder.fill" : "doc")
+                        .foregroundStyle(item.isDirectory ? Color.blue : Color.secondary)
+                    Text(item.name).lineLimit(1)
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) { viewModel.open(item) }
-            .onDrag { viewModel.makeDragProvider(for: item) }
+            TableColumn("Size", value: \.size) { item in
+                Text(item.isDirectory ? "--" : ByteCountFormatter.string(fromByteCount: Int64(item.size), countStyle: .file))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            .width(min: 70, ideal: 90)
+            TableColumn("Modified", value: \.modifiedDate) { item in
+                Text(item.modifiedDate, format: .dateTime.year().month().day().hour().minute())
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            .width(min: 130, ideal: 150)
         }
-        .listStyle(.plain)
+        .onTapGesture(count: 2) { viewModel.openFirstSelected() }
+        .contextMenu(forSelectionType: URL.self) { _ in
+            Button("Open") { viewModel.openFirstSelected() }
+            Button("Quick Look") { viewModel.previewSelected() }
+            Button("Show in Finder") {
+                if let url = viewModel.selection.first { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            }
+        } primaryAction: { _ in
+            viewModel.openFirstSelected()
+        }
     }
 
     private var iconView: some View {
@@ -207,6 +235,33 @@ struct PaneView: View {
             }
             .padding(10)
         }
+    }
+
+    private var statusBar: some View {
+        HStack(spacing: 8) {
+            Text("\(viewModel.filteredItems.count) items")
+            if !viewModel.selection.isEmpty {
+                Text("· \(viewModel.selection.count) selected")
+            }
+            if let summary = viewModel.lastOperationSummary {
+                Text("· \(summary)").foregroundStyle(.orange)
+            }
+            Spacer()
+            if let free = freeSpaceText {
+                Text(free)
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private var freeSpaceText: String? {
+        let values = try? viewModel.currentURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        guard let capacity = values?.volumeAvailableCapacityForImportantUsage else { return nil }
+        return ByteCountFormatter.string(fromByteCount: capacity, countStyle: .file) + " free"
     }
 
     // MARK: - Progress

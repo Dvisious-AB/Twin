@@ -9,6 +9,7 @@ struct FileItem: Identifiable, Hashable {
     let name: String
     let isDirectory: Bool
     let size: UInt64
+    let modifiedDate: Date
 }
 
 enum PaneViewMode: String, CaseIterable, Identifiable {
@@ -45,6 +46,10 @@ final class PaneViewModel: ObservableObject {
     @Published var quickLookURL: URL?
     @Published var searchText: String = ""
     @Published var isSearchEditing = false
+    @Published var searchFocusTrigger = 0
+    @Published var lastOperationSummary: String?
+
+    func focusSearch() { searchFocusTrigger += 1 }
     @Published var loadState: DirectoryLoadState = .loaded(itemCount: 0)
 
     var filteredItems: [FileItem] {
@@ -93,7 +98,6 @@ final class PaneViewModel: ObservableObject {
     // MARK: - Listing
 
     func refresh() {
-        let fm = FileManager.default
         let contents: [URL]
         do {
             contents = try TwinCore.fileCoordinator.contentsOfDirectory(at: currentURL)
@@ -103,12 +107,13 @@ final class PaneViewModel: ObservableObject {
             return
         }
         items = contents.compactMap { url in
-            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
             return FileItem(
                 url: url,
                 name: url.lastPathComponent,
                 isDirectory: values?.isDirectory ?? false,
-                size: UInt64(values?.fileSize ?? 0)
+                size: UInt64(values?.fileSize ?? 0),
+                modifiedDate: values?.contentModificationDate ?? .distantPast
             )
         }
         .sorted { $0.name.lowercased() < $1.name.lowercased() }
@@ -131,6 +136,12 @@ final class PaneViewModel: ObservableObject {
         currentURL = parent
         selection.removeAll()
         refresh()
+    }
+
+    func openFirstSelected() {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first,
+              let item = items.first(where: { $0.url == url }) else { return }
+        open(item)
     }
 
     /// Quick Look (Space) for the first selected file.
@@ -173,10 +184,16 @@ final class PaneViewModel: ObservableObject {
         }
 
         let total = Double(urls.count)
+        var skipped = 0
         for (index, url) in urls.enumerated() {
             // Yield so SwiftUI can render the progress update.
             await Task.yield()
             let target = dest.appendingPathComponent(url.lastPathComponent)
+            if FileManager.default.fileExists(atPath: target.path) {
+                skipped += 1
+                operationProgress = Double(index + 1) / total
+                continue
+            }
             do {
                 if move {
                     try TwinCore.fileCoordinator.moveItem(at: url, to: target)
@@ -189,6 +206,10 @@ final class PaneViewModel: ObservableObject {
             }
             operationProgress = Double(index + 1) / total
         }
+        let done = urls.count - skipped
+        lastOperationSummary = skipped > 0
+            ? "\(move ? "Moved" : "Copied") \(done), skipped \(skipped) existing"
+            : nil
         refresh()
     }
 
