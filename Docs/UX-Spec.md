@@ -26,7 +26,8 @@ i `Sources/TwinApp/Features/DualPane/` om inget annat anges.
 |---|---|---|
 | F5 (Cmd+5) | Kopiera markerat till andra panelen | Implementerat* |
 | F6 (Cmd+6) | Flytta markerat till andra panelen | Implementerat* |
-| Tab | Växla aktiv panel | Nästa — kräver key handling i DualPaneView |
+| Tab / Cmd+1 / Cmd+2 | Växla aktiv panel (Cmd+1 vänster, Cmd+2 höger) | Implementerat |
+| Filterfält | Instant search per panel | Implementerat |
 | Dubbelklick mapp | Navigera in | Implementerat |
 | Dubbelklick fil | Öppna i standardapp | Implementerat |
 | Drag fil → andra panelen | NSFilePromise-drop, kopiera med progress | Implementerat |
