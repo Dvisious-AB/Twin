@@ -40,6 +40,10 @@ targets:
         LSMinimumSystemVersion: "14.0"
         NSPrincipalClass: NSApplication
         NSHighResolutionCapable: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.anderselmen.twin
+            CFBundleURLSchemes:
+              - twin
   FinderSyncExtension:
     type: app-extension
     platform: macOS

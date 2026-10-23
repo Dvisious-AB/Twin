@@ -24,6 +24,15 @@ struct DualPaneView: View {
                     .onTapGesture { selected = 1 }
             }
         }
+        .onOpenURL { url in
+            // twin://open?path=/some/folder  (from FinderSync "Open in Twin")
+            guard url.scheme == "twin",
+                  let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  let path = components.queryItems?.first(where: { $0.name == "path" })?.value,
+                  !path.isEmpty else { return }
+            left.navigate(to: URL(fileURLWithPath: path))
+            selected = 0
+        }
         .toolbar {
             ToolbarItemGroup {
                 Button("Left") { selected = 0 }
