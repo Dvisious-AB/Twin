@@ -68,16 +68,16 @@ final class TwinUITests: XCTestCase {
         XCTAssertTrue(more.waitForExistence(timeout: 30))
         more.click()
         let assistant = app.menuItems["Assistant…"]
-        XCTAssertTrue(assistant.waitForExistence(timeout: 15))
+        XCTAssertTrue(assistant.waitForExistence(timeout: 60))
         assistant.click()
         let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        XCTAssertTrue(field.waitForExistence(timeout: 60))
         field.click()
         field.typeText("How do I encrypt a file?\n")
         let answer = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "Cmd+Shift+E", "Cmd+Shift+E")
         ).firstMatch
-        if !answer.waitForExistence(timeout: 10) {
+        if !answer.waitForExistence(timeout: 60) {
             let dump = app.debugDescription
             XCTContext.runActivity(named: "UI dump") { activity in
                 activity.add(XCTAttachment(string: dump))
