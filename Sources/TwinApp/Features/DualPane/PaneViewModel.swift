@@ -136,8 +136,9 @@ final class PaneViewModel: ObservableObject {
         }
         var crumbs: [Breadcrumb] = []
         var building = URL(fileURLWithPath: "/")
-        // Root crumb
-        crumbs.append(Breadcrumb(name: "/", url: building))
+        // Root crumb shows the volume name, not a bare "/".
+        let volumeName = (try? building.resourceValues(forKeys: [.volumeNameKey]))?.volumeName ?? "Macintosh HD"
+        crumbs.append(Breadcrumb(name: volumeName, url: building))
         for component in components where component != "/" {
             building.appendPathComponent(component)
             crumbs.append(Breadcrumb(name: component, url: building))

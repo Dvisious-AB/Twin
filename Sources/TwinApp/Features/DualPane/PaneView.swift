@@ -251,6 +251,8 @@ struct PaneView: View {
                     FileItemIcon(item: item)
                     Text(item.name)
                         .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(item.url.path)
                         .fontWeight(viewModel.selection.contains(item.url) ? .bold : .regular)
                     if let badge = viewModel.gitBadge(for: item) {
                         Text(badge.rawValue)
@@ -344,6 +346,16 @@ struct PaneView: View {
             }
             if !viewModel.selection.isEmpty {
                 Text("· \(viewModel.selection.count) selected")
+                let selectedBytes = viewModel.items
+                    .filter { viewModel.selection.contains($0.url) }
+                    .reduce(UInt64(0)) { total, item in
+                        total + (item.isDirectory
+                            ? (viewModel.directorySizes[item.url.path] ?? 0)
+                            : UInt64(item.size))
+                    }
+                if selectedBytes > 0 {
+                    Text("· \(SizeFormatting.string(forBytes: selectedBytes))")
+                }
             }
             if let summary = viewModel.lastOperationSummary {
                 Text("· \(summary)").foregroundStyle(.orange)

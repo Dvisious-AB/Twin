@@ -362,7 +362,9 @@ struct DualPaneView: View {
             Button("Cancel", role: .cancel) {}
             Button("Move to Trash", role: .destructive) { activePane.trashSelected() }
         } message: {
-            Text("\(activePane.selection.count) item(s) will be moved to the Trash.")
+            Text(activePane.selection.count == 1
+                ? "1 item will be moved to the Trash."
+                : "\(activePane.selection.count) items will be moved to the Trash.")
         }
         .onOpenURL { url in
             // twin://open?path=/some/folder  (from FinderSync "Open in Twin")
