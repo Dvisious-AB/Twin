@@ -65,7 +65,9 @@ final class TwinUITests: XCTestCase {
     func testAssistantAnswersEncryptionQuestion() {
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 30))
         let more = app.menuButtons["More"]
-        XCTAssertTrue(more.waitForExistence(timeout: 30))
+        // First-launch render on a cold CI runner measured beyond 30 s
+        // (window exists, function bar not yet in the AX tree).
+        XCTAssertTrue(more.waitForExistence(timeout: 120))
         more.click()
         let assistant = app.menuItems["Assistant…"]
         XCTAssertTrue(assistant.waitForExistence(timeout: 60))
