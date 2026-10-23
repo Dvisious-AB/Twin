@@ -27,9 +27,6 @@ final class FilePromiseProviderDelegate: NSObject, NSFilePromiseProviderDelegate
         completionHandler: @escaping (Error?) -> Void
     ) {
         do {
-            if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
-            }
             try StreamedFileCopy.copy(from: sourceURL, to: url)
             completionHandler(nil)
         } catch {

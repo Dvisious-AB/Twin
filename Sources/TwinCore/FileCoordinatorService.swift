@@ -6,6 +6,9 @@ public enum StreamedFileCopy {
     public static let chunkSize = 1 << 20 // 1 MiB
 
     public static func copy(from source: URL, to destination: URL) throws {
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
         let values = try source.resourceValues(forKeys: [.isDirectoryKey])
         if values.isDirectory == true {
             try FileManager.default.copyItem(at: source, to: destination)
