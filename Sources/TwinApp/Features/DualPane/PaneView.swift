@@ -126,6 +126,24 @@ struct PaneView: View {
 
     @ViewBuilder
     private var content: some View {
+        if viewModel.loadState.isError || viewModel.loadState == .empty {
+            ContentUnavailableView {
+                Label(
+                    viewModel.loadState == .empty ? "Folder is Empty" : "Can't Read Folder",
+                    systemImage: viewModel.loadState == .empty ? "folder" : "exclamationmark.triangle"
+                )
+            } description: {
+                Text(viewModel.loadState.userMessage)
+            } actions: {
+                Button("Try Again") { viewModel.refresh() }
+            }
+        } else {
+            paneContent
+        }
+    }
+
+    @ViewBuilder
+    private var paneContent: some View {
         switch viewModel.viewMode {
         case .list:
             listView

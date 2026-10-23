@@ -45,6 +45,7 @@ final class PaneViewModel: ObservableObject {
     @Published var quickLookURL: URL?
     @Published var searchText: String = ""
     @Published var isSearchEditing = false
+    @Published var loadState: DirectoryLoadState = .loaded(itemCount: 0)
 
     var filteredItems: [FileItem] {
         PaneSearch.filter(items, query: searchText)
@@ -93,12 +94,12 @@ final class PaneViewModel: ObservableObject {
 
     func refresh() {
         let fm = FileManager.default
-        guard let contents = try? fm.contentsOfDirectory(
-            at: currentURL,
-            includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey],
-            options: [.skipsHiddenFiles]
-        ) else {
+        let contents: [URL]
+        do {
+            contents = try TwinCore.fileCoordinator.contentsOfDirectory(at: currentURL)
+        } catch {
             items = []
+            loadState = DirectoryLoadState.classify(error: error, for: currentURL)
             return
         }
         items = contents.compactMap { url in
@@ -111,6 +112,7 @@ final class PaneViewModel: ObservableObject {
             )
         }
         .sorted { $0.name.lowercased() < $1.name.lowercased() }
+        loadState = DirectoryLoadState.state(contents: contents, for: currentURL)
     }
 
     func navigate(to url: URL) {
