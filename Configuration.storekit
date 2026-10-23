@@ -1,0 +1,35 @@
+{
+  "identifier" : "TwinStoreKit",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "24.99",
+      "familyShareable" : false,
+      "internalID" : "twin-pro-lifetime",
+      "localizations" : [
+        {
+          "description" : "Twin Pro — lifetime, 1 year of updates included",
+          "displayName" : "Twin Pro",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "Twin Pro — livstid, 1 års uppdateringar ingår",
+          "displayName" : "Twin Pro",
+          "locale" : "sv_SE"
+        }
+      ],
+      "productID" : "com.anderselmen.twin.pro",
+      "referenceName" : "Twin Pro Lifetime",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
