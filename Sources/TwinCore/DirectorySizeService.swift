@@ -13,6 +13,12 @@ public actor DirectorySizeService {
 
     private var cache: [String: Entry] = [:]
 
+    /// Limits concurrent recursive walks. Without a gate, listing a
+    /// home folder queued dozens of walks on this actor, which ran
+    /// them strictly one-by-one — large trees (docker, model caches)
+    /// blocked every other folder's size for minutes (issue #17).
+    private let gate = ConcurrencyGate(limit: 4)
+
     /// Standard home folders macOS guards with TCC consent prompts.
     /// Background size computation must never walk into them unasked:
     /// the user would get a permission prompt for a folder they never
@@ -47,7 +53,13 @@ public actor DirectorySizeService {
         if !explicit, Self.isProtectedFolder(url) { return 0 }
         if let cached = cachedSize(for: url) { return cached }
         let modified = modificationDate(of: url)
-        let total = Self.computeSize(of: url)
+        await gate.acquire()
+        // The walk runs detached so this actor stays responsive and up
+        // to the gate limit of walks proceed in parallel.
+        let total = await Task.detached(priority: .utility) {
+            Self.computeSize(of: url)
+        }.value
+        await gate.release()
         cache[url.path] = Entry(size: total, modified: modified)
         return total
     }
@@ -64,13 +76,15 @@ public actor DirectorySizeService {
         (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
     }
 
-    /// Synchronous recursive walk. Call from a background context (actor does).
+    /// Synchronous recursive walk. Call from a background context.
     /// Protected subfolders below the walk root are pruned, so sizing a
     /// home folder never triggers TCC prompts; their bytes are excluded.
+    /// Hidden files are skipped: they are mostly caches and VCS data,
+    /// and including them made large trees dramatically slower (#17).
     public static func computeSize(of url: URL) -> UInt64 {
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .isDirectoryKey]
         guard let enumerator = FileManager.default.enumerator(
-            at: url, includingPropertiesForKeys: keys, options: []
+            at: url, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]
         ) else { return 0 }
         var total: UInt64 = 0
         for case let fileURL as URL in enumerator {
@@ -82,5 +96,31 @@ public actor DirectorySizeService {
             }
         }
         return total
+    }
+}
+
+/// FIFO counting semaphore for limiting concurrent background walks.
+private actor ConcurrencyGate {
+    private var available: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) {
+        available = limit
+    }
+
+    func acquire() async {
+        if available > 0 {
+            available -= 1
+            return
+        }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            available += 1
+        } else {
+            waiters.removeFirst().resume()
+        }
     }
 }

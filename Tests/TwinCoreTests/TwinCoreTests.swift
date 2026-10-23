@@ -98,6 +98,15 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
     }
 
+    func testDirectorySizeSkipsHiddenFiles() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        try String(repeating: "x", count: 100).write(to: base.appendingPathComponent("visible.txt"), atomically: true, encoding: .utf8)
+        try String(repeating: "y", count: 900).write(to: base.appendingPathComponent(".hidden"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(DirectorySizeService.computeSize(of: base), 100)
+    }
+
     func testProtectedFolderDetection() {
         let protected = [
             "/Users/aelmen/Desktop", "/Users/aelmen/Documents", "/Users/aelmen/Downloads",
