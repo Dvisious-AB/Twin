@@ -41,6 +41,8 @@ final class PaneViewModel: ObservableObject {
     @Published var items: [FileItem] = []
     @Published var selection = Set<URL>()
     @Published var viewMode: PaneViewMode = .list
+    @Published var navigationPath = NavigationPath()
+    @Published var quickLookURL: URL?
 
     // Drag-drop / file-operation progress
     @Published var isDropTargeted = false
@@ -121,6 +123,15 @@ final class PaneViewModel: ObservableObject {
         currentURL = parent
         selection.removeAll()
         refresh()
+    }
+
+    /// Quick Look (Space) for the first selected file.
+    func previewSelected() {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first else { return }
+        let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+        if !isDirectory {
+            quickLookURL = url
+        }
     }
 
     func open(_ item: FileItem) {

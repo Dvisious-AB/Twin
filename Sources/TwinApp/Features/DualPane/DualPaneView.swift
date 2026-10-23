@@ -12,13 +12,26 @@ struct DualPaneView: View {
 
     var body: some View {
         HSplitView {
-            PaneView(viewModel: left, isActive: selected == 0)
-                .onTapGesture { selected = 0 }
-            PaneView(viewModel: right, isActive: selected == 1)
-                .onTapGesture { selected = 1 }
+            // Two independent NavigationStacks — one per pane (LeadUX).
+            NavigationStack(path: $left.navigationPath) {
+                PaneView(viewModel: left, isActive: selected == 0)
+                    .navigationTitle(left.currentURL.lastPathComponent)
+                    .onTapGesture { selected = 0 }
+            }
+            NavigationStack(path: $right.navigationPath) {
+                PaneView(viewModel: right, isActive: selected == 1)
+                    .navigationTitle(right.currentURL.lastPathComponent)
+                    .onTapGesture { selected = 1 }
+            }
         }
         .toolbar {
             ToolbarItemGroup {
+                Button("Left") { selected = 0 }
+                    .keyboardShortcut("1", modifiers: .command)
+                    .help("Activate left pane (Cmd+1)")
+                Button("Right") { selected = 1 }
+                    .keyboardShortcut("2", modifiers: .command)
+                    .help("Activate right pane (Cmd+2)")
                 Button("F5 Copy") {
                     Task { await activePane.copySelected(to: inactivePane.currentURL); inactivePane.refresh() }
                 }

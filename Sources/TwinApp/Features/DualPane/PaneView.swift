@@ -1,3 +1,4 @@
+import QuickLook
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -27,6 +28,12 @@ struct PaneView: View {
                     .allowsHitTesting(false)
             }
         }
+        .focusable()
+        .onKeyPress(.space) {
+            viewModel.previewSelected()
+            return viewModel.quickLookURL != nil ? .handled : .ignored
+        }
+        .quickLookPreview($viewModel.quickLookURL)
         .onDrop(of: [UTType.fileURL], isTargeted: $viewModel.isDropTargeted) { providers in
             Task { @MainActor in
                 _ = await viewModel.handleDrop(providers: providers)
