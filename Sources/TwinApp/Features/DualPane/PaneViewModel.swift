@@ -44,6 +44,7 @@ final class PaneViewModel: ObservableObject {
     @Published var navigationPath = NavigationPath()
     @Published var quickLookURL: URL?
     @Published var searchText: String = ""
+    @Published var isSearchEditing = false
 
     var filteredItems: [FileItem] {
         PaneSearch.filter(items, query: searchText)

@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct PaneView: View {
     @ObservedObject var viewModel: PaneViewModel
     var isActive: Bool
+    var onRequestPaneSwitch: () -> Void = {}
 
     private let iconColumns = [
         GridItem(.adaptive(minimum: 76, maximum: 110), spacing: 12)
@@ -29,6 +30,12 @@ struct PaneView: View {
             }
         }
         .focusable()
+        .onKeyPress(.tab) {
+            // Tab switches pane — unless the user is typing in the filter field.
+            guard !viewModel.isSearchEditing else { return .ignored }
+            onRequestPaneSwitch()
+            return .handled
+        }
         .onKeyPress(.space) {
             viewModel.previewSelected()
             return viewModel.quickLookURL != nil ? .handled : .ignored
@@ -75,7 +82,7 @@ struct PaneView: View {
                     .foregroundStyle(.secondary)
             }
 
-            PaneSearchField(text: $viewModel.searchText)
+            PaneSearchField(text: $viewModel.searchText) { viewModel.isSearchEditing = $0 }
         }
         .padding(6)
         .background(isActive ? Color.accentColor.opacity(0.1) : Color.clear)

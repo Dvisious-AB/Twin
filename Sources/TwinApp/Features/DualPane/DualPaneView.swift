@@ -6,6 +6,12 @@ struct DualPaneView: View {
         initialPath: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents")
     )
     @State var selected: Int = 0
+    @FocusState private var paneFocus: Int?
+
+    private func switchPane() {
+        selected = selected == 0 ? 1 : 0
+        paneFocus = selected
+    }
 
     private var activePane: PaneViewModel { selected == 0 ? left : right }
     private var inactivePane: PaneViewModel { selected == 0 ? right : left }
@@ -14,14 +20,16 @@ struct DualPaneView: View {
         HSplitView {
             // Two independent NavigationStacks — one per pane (LeadUX).
             NavigationStack(path: $left.navigationPath) {
-                PaneView(viewModel: left, isActive: selected == 0)
+                PaneView(viewModel: left, isActive: selected == 0) { switchPane() }
                     .navigationTitle(left.currentURL.lastPathComponent)
-                    .onTapGesture { selected = 0 }
+                    .focused($paneFocus, equals: 0)
+                    .onTapGesture { selected = 0; paneFocus = 0 }
             }
             NavigationStack(path: $right.navigationPath) {
-                PaneView(viewModel: right, isActive: selected == 1)
+                PaneView(viewModel: right, isActive: selected == 1) { switchPane() }
                     .navigationTitle(right.currentURL.lastPathComponent)
-                    .onTapGesture { selected = 1 }
+                    .focused($paneFocus, equals: 1)
+                    .onTapGesture { selected = 1; paneFocus = 1 }
             }
         }
         .onOpenURL { url in
@@ -35,10 +43,10 @@ struct DualPaneView: View {
         }
         .toolbar {
             ToolbarItemGroup {
-                Button("Left") { selected = 0 }
+                Button("Left") { selected = 0; paneFocus = 0 }
                     .keyboardShortcut("1", modifiers: .command)
                     .help("Activate left pane (Cmd+1)")
-                Button("Right") { selected = 1 }
+                Button("Right") { selected = 1; paneFocus = 1 }
                     .keyboardShortcut("2", modifiers: .command)
                     .help("Activate right pane (Cmd+2)")
                 Button("F5 Copy") {

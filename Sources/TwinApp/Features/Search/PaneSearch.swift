@@ -14,6 +14,8 @@ enum PaneSearch {
 
 struct PaneSearchField: View {
     @Binding var text: String
+    var onFocusChange: (Bool) -> Void = { _ in }
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 4) {
@@ -23,6 +25,8 @@ struct PaneSearchField: View {
             TextField("Filter…", text: $text)
                 .textFieldStyle(.plain)
                 .font(.caption)
+                .focused($isFocused)
+                .onChange(of: isFocused) { _, focused in onFocusChange(focused) }
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill")
