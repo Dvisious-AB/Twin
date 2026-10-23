@@ -62,8 +62,23 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: se.dvisious.twin.findersync
         INFOPLIST_FILE: Sources/FinderSync/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/FinderSync/FinderSync.entitlements
+  TwinUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Tests/TwinUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: se.dvisious.twin.uitests
+    dependencies:
+      - target: TwinApp
 schemes:
   Twin:
+    test:
+      targets:
+        - TwinUITests
     build:
       targets:
         TwinApp: all

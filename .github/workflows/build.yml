@@ -21,3 +21,5 @@ jobs:
         run: xcodebuild -scheme Twin -configuration Debug -destination 'platform=macOS' build
       - name: TwinCore tests
         run: swift test
+      - name: UI tests (XCUITest)
+        run: xcodebuild -scheme Twin -destination 'platform=macOS' -only-testing:TwinUITests test
