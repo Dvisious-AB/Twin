@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct DualPaneView: View {
@@ -9,10 +10,33 @@ struct DualPaneView: View {
     @FocusState private var paneFocus: Int?
     @State private var showPaywall = false
     @ObservedObject private var store = StoreKitManager.shared
+    @AppStorage("twin.didPickStartFolder") private var didPickStartFolder = false
 
     private func switchPane() {
         selected = selected == 0 ? 1 : 0
         paneFocus = selected
+    }
+
+    /// Sandboxed apps see their container as "home". On first launch, let the
+    /// user pick their real start folder once; the choice is bookmarked.
+    private func pickStartFolderIfNeeded() {
+        guard !didPickStartFolder else { return }
+        didPickStartFolder = true
+        guard left.currentURL.path.contains("/Library/Containers/") else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose Start Folder"
+        panel.message = "Choose your start folder (for example your home folder). Twin remembers it."
+        panel.directoryURL = URL(fileURLWithPath: "/Users")
+        if panel.runModal() == .OK, let url = panel.url {
+            left.navigate(to: url)
+            let documents = url.appendingPathComponent("Documents")
+            if FileManager.default.fileExists(atPath: documents.path) {
+                right.navigate(to: documents)
+            }
+        }
     }
 
     private var activePane: PaneViewModel { selected == 0 ? left : right }
@@ -34,6 +58,7 @@ struct DualPaneView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showPaywall) { PaywallView() }
+        .onAppear { pickStartFolderIfNeeded() }
         .onOpenURL { url in
             // twin://open?path=/some/folder  (from FinderSync "Open in Twin")
             guard url.scheme == "twin",
