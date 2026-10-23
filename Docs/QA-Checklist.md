@@ -26,6 +26,6 @@
 
 ## Kvar före submit
 
-- [ ] Hardened runtime vid arkivering (Xcode Archive, endast där)
+- [x] `Scripts/archive.sh --unsigned` — `ARCHIVE SUCCEEDED` lokalt. Signerad arkivering + hardened runtime kräver aktivt Apple Developer-konto (#7)
 - [ ] App Store Connect: produkt `se.dvisious.twin.pro`, pris 249 kr (launch 149 kr)
 - [ ] Screenshots enligt README-sektionen "Screenshots"
