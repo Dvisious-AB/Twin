@@ -60,15 +60,18 @@ final class TwinUITests: XCTestCase {
     }
 
     // The assistant opens from the function bar's More menu and answers from built-in help.
+    // Timeouts are generous: cold CI runners take >100 s for first launch
+    // (observed 122 s for a sibling test) while local runs take ~8 s.
     func testAssistantAnswersEncryptionQuestion() {
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 30))
         let more = app.menuButtons["More"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        XCTAssertTrue(more.waitForExistence(timeout: 30))
         more.click()
         let assistant = app.menuItems["Assistant…"]
-        XCTAssertTrue(assistant.waitForExistence(timeout: 5))
+        XCTAssertTrue(assistant.waitForExistence(timeout: 15))
         assistant.click()
         let field = app.textFields.firstMatch
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
         field.click()
         field.typeText("How do I encrypt a file?\n")
         let answer = app.staticTexts.matching(
