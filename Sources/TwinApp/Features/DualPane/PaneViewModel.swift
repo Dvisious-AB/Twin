@@ -75,7 +75,40 @@ final class PaneViewModel: ObservableObject {
 
     // MARK: - Breadcrumbs
 
+    /// True when the pane sits in the app's sandbox container — not user files.
+    var isInSandboxContainer: Bool {
+        currentURL.path.contains("/Library/Containers/")
+    }
+
+    /// Folder to start breadcrumb display from. Inside the sandbox container,
+    /// everything up to the container's Data folder is noise — hide it.
+    private var breadcrumbRoot: URL {
+        let components = currentURL.pathComponents
+        guard let containersIndex = components.firstIndex(of: "Containers"),
+              components.count > containersIndex + 2 else { return currentURL }
+        // .../Containers/<bundle-id>/Data
+        var url = URL(fileURLWithPath: "/")
+        for component in components[1...(containersIndex + 2)] {
+            url.appendPathComponent(component)
+        }
+        return url
+    }
+
     var breadcrumbs: [Breadcrumb] {
+        // Inside the container, start crumbs at the Data folder.
+        if isInSandboxContainer {
+            let root = breadcrumbRoot
+            if currentURL.path.hasPrefix(root.path) {
+                var crumbs = [Breadcrumb(name: "Twin Data", url: root)]
+                var building = root
+                let relative = currentURL.path.dropFirst(root.path.count)
+                for component in relative.split(separator: "/") {
+                    building.appendPathComponent(String(component))
+                    crumbs.append(Breadcrumb(name: String(component), url: building))
+                }
+                return crumbs
+            }
+        }
         let components = currentURL.pathComponents
         guard !components.isEmpty else {
             return [Breadcrumb(name: currentURL.lastPathComponent, url: currentURL)]

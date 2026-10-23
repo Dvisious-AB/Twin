@@ -6,6 +6,7 @@ struct PaneView: View {
     @ObservedObject var viewModel: PaneViewModel
     var isActive: Bool
     var onRequestPaneSwitch: () -> Void = {}
+    var onChooseFolder: () -> Void = {}
 
     private let iconColumns = [
         GridItem(.adaptive(minimum: 76, maximum: 110), spacing: 12)
@@ -21,7 +22,7 @@ struct PaneView: View {
             }
             statusBar
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .border(isActive ? Color.accentColor : Color.clear, width: 2)
         .overlay {
             if viewModel.isDropTargeted {
@@ -77,6 +78,18 @@ struct PaneView: View {
                 onFocusChange: { viewModel.isSearchEditing = $0 },
                 focusTrigger: viewModel.searchFocusTrigger
             )
+
+            if viewModel.isInSandboxContainer {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    Text("Sandbox container — not your files.")
+                        .font(.caption)
+                    Spacer()
+                    Button("Choose Folder…") { onChooseFolder() }
+                        .font(.caption)
+                }
+                .padding(.horizontal, 4)
+            }
         }
         .padding(6)
         .background(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
@@ -136,6 +149,7 @@ struct PaneView: View {
             }
         } else {
             paneContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

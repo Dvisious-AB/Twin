@@ -72,3 +72,16 @@ Användarens capture av körande app bekräftade och utökade granskningen:
   hemkatalogen dit. För en filhanterare krävs en medveten startpunkt —
   förslagsvis senaste bokmärkta mappen, annars en välj-mapp-uppmaning.
   Spåras på #9.
+
+## Andra skärmbilden — seniorfynd (nu åtgärdade)
+
+- Högerpanelens huvudinnehåll låg vertikalt centrerat när mappen var tom:
+  `ContentUnavailableView` expanderade inte. Alla innehållsgrenar fyller
+  nu sin yta och panelen är toppförankrad.
+- Containerfällan har nu en synlig banner i panelen ("Sandbox container —
+  not your files" + Choose Folder…) i stället för en engångsmodal som var
+  lätt att missa/avbryta. Vald mapp bokmärks per panel.
+- Breadcrumbs börjar på "Twin Data" inne i containern i stället för
+  `/Users/…/Library/Containers/se.dvisious.twin/…`.
+- Total Commander-funktionsrad längst ned: aktiv mapp → målmapp, F5 Copy /
+  F6 Move (inaktiva utan markering). En TC-veteran ska känna igen sig.

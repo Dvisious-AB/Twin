@@ -10,32 +10,51 @@ struct DualPaneView: View {
     @FocusState private var paneFocus: Int?
     @State private var showPaywall = false
     @ObservedObject private var store = StoreKitManager.shared
-    @AppStorage("twin.didPickStartFolder") private var didPickStartFolder = false
+
+    /// Total Commander-style function bar: the pane operations live here,
+    /// always visible, instead of only in the top toolbar.
+    private var functionBar: some View {
+        HStack(spacing: 8) {
+            Text(activePane.currentURL.lastPathComponent)
+                .font(.caption.bold())
+                .lineLimit(1)
+            Image(systemName: "arrow.right")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(inactivePane.currentURL.lastPathComponent)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer()
+            Button("F5 Copy") {
+                Task { await activePane.copySelected(to: inactivePane.currentURL); inactivePane.refresh() }
+            }
+            .disabled(activePane.selection.isEmpty)
+            Button("F6 Move") {
+                Task { await activePane.moveSelected(to: inactivePane.currentURL); inactivePane.refresh() }
+            }
+            .disabled(activePane.selection.isEmpty)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
 
     private func switchPane() {
         selected = selected == 0 ? 1 : 0
         paneFocus = selected
     }
 
-    /// Sandboxed apps see their container as "home". On first launch, let the
-    /// user pick their real start folder once; the choice is bookmarked.
-    private func pickStartFolderIfNeeded() {
-        guard !didPickStartFolder else { return }
-        didPickStartFolder = true
-        guard left.currentURL.path.contains("/Library/Containers/") else { return }
+    private func chooseFolder(for pane: PaneViewModel) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Choose Start Folder"
-        panel.message = "Choose your start folder (for example your home folder). Twin remembers it."
+        panel.prompt = "Open"
+        panel.message = "Choose a folder for this pane. Twin remembers it via a bookmark."
         panel.directoryURL = URL(fileURLWithPath: "/Users")
         if panel.runModal() == .OK, let url = panel.url {
-            left.navigate(to: url)
-            let documents = url.appendingPathComponent("Documents")
-            if FileManager.default.fileExists(atPath: documents.path) {
-                right.navigate(to: documents)
-            }
+            pane.navigate(to: url)
         }
     }
 
@@ -43,22 +62,32 @@ struct DualPaneView: View {
     private var inactivePane: PaneViewModel { selected == 0 ? right : left }
 
     var body: some View {
+        VStack(spacing: 0) {
         // NOTE: NavigationStack inside HSplitView collapsed the layout to a
         // centered band and leaked the folder name as window title — removed.
         // Each pane keeps its own navigation state in its view model.
         HSplitView {
-            PaneView(viewModel: left, isActive: selected == 0) { switchPane() }
+            PaneView(
+                    viewModel: left, isActive: selected == 0,
+                    onRequestPaneSwitch: { switchPane() },
+                    onChooseFolder: { chooseFolder(for: left) }
+                )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .focused($paneFocus, equals: 0)
                 .onTapGesture { selected = 0; paneFocus = 0 }
-            PaneView(viewModel: right, isActive: selected == 1) { switchPane() }
+            PaneView(
+                    viewModel: right, isActive: selected == 1,
+                    onRequestPaneSwitch: { switchPane() },
+                    onChooseFolder: { chooseFolder(for: right) }
+                )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .focused($paneFocus, equals: 1)
                 .onTapGesture { selected = 1; paneFocus = 1 }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+            functionBar
+        }
         .sheet(isPresented: $showPaywall) { PaywallView() }
-        .onAppear { pickStartFolderIfNeeded() }
         .onOpenURL { url in
             // twin://open?path=/some/folder  (from FinderSync "Open in Twin")
             guard url.scheme == "twin",
