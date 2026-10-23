@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import TwinCore
 import TwinPro
 
 struct DualPaneView: View {
@@ -26,6 +27,10 @@ struct DualPaneView: View {
     @State private var showNewFolder = false
     @State private var showRename = false
     @State private var newName = ""
+    @State private var showBatchRename = false
+    @State private var showSaveWorkspace = false
+    @State private var workspaceName = ""
+    @State private var savedWorkspaces: [Workspace] = WorkspaceStore.shared.load()
     @ObservedObject private var store = StoreKitManager.shared
 
     private func nameSheet(title: String, prompt: String, action: @escaping () -> Void) -> some View {
@@ -102,6 +107,30 @@ struct DualPaneView: View {
                 .keyboardShortcut("u", modifiers: [.command, .shift])
                 .disabled(!activePane.selectedIsArchive)
                 .help("Unpack zip (Alt+F6 / Cmd+Shift+U)")
+            Button("Batch Rename") {
+                if store.isProUnlocked { showBatchRename = true } else { showPaywall = true }
+            }
+            .disabled(activePane.selection.isEmpty)
+            .help("Batch rename selected (Pro)")
+            Menu("Workspaces") {
+                Button("Save Current…") {
+                    if store.isProUnlocked { workspaceName = ""; showSaveWorkspace = true } else { showPaywall = true }
+                }
+                if !savedWorkspaces.isEmpty { Divider() }
+                ForEach(savedWorkspaces) { workspace in
+                    Button(workspace.name) { applyWorkspace(workspace) }
+                }
+                if !savedWorkspaces.isEmpty {
+                    Divider()
+                    ForEach(savedWorkspaces) { workspace in
+                        Button("Delete \(workspace.name)", role: .destructive) {
+                            WorkspaceStore.shared.delete(id: workspace.id)
+                            savedWorkspaces = WorkspaceStore.shared.load()
+                        }
+                    }
+                }
+            }
+            .help("Saved workspaces (Pro)")
             Button("Permissions") { showPermissions = true }
                 .keyboardShortcut("i", modifiers: .command)
                 .disabled(activePane.selection.count != 1)
@@ -187,6 +216,27 @@ struct DualPaneView: View {
         paneFocus = selected
     }
 
+    private func saveWorkspace() {
+        let workspace = Workspace(
+            name: workspaceName.trimmingCharacters(in: .whitespaces),
+            leftTabs: leftTabs.tabs.map { $0.currentURL.path },
+            rightTabs: rightTabs.tabs.map { $0.currentURL.path },
+            activeLeftTab: leftTabs.activeIndex,
+            activeRightTab: rightTabs.activeIndex,
+            activeSide: selected
+        )
+        WorkspaceStore.shared.save(workspace)
+        savedWorkspaces = WorkspaceStore.shared.load()
+    }
+
+    private func applyWorkspace(_ workspace: Workspace) {
+        guard store.isProUnlocked else { showPaywall = true; return }
+        leftTabs.restore(paths: workspace.leftTabs, active: workspace.activeLeftTab)
+        rightTabs.restore(paths: workspace.rightTabs, active: workspace.activeRightTab)
+        selected = workspace.activeSide
+        paneFocus = selected
+    }
+
     private func chooseFolder(for pane: PaneViewModel) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -228,6 +278,28 @@ struct DualPaneView: View {
             nameSheet(title: "New Folder", prompt: "Folder name") {
                 activePane.createFolder(named: newName)
             }
+        }
+        .sheet(isPresented: $showBatchRename) {
+            BatchRenameView(items: activePane.selection.sorted(by: { $0.path < $1.path })) {
+                activePane.refresh()
+            }
+        }
+        .sheet(isPresented: $showSaveWorkspace) {
+            VStack(spacing: 14) {
+                Text("Save Workspace").font(.headline)
+                TextField("Workspace name", text: $workspaceName)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 260)
+                HStack {
+                    Button("Cancel") { showSaveWorkspace = false }
+                    Spacer()
+                    Button("Save") { saveWorkspace(); showSaveWorkspace = false }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(workspaceName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .padding(20)
+            .frame(width: 320)
         }
         .sheet(isPresented: $showRename) {
             nameSheet(title: "Rename", prompt: "New name") {
@@ -287,6 +359,9 @@ struct DualPaneView: View {
                 Button { selected = 1; paneFocus = 1 } label: { Label("Right", systemImage: "rectangle.trailinghalf.inset.filled") }
                     .keyboardShortcut("2", modifiers: .command)
                     .help("Activate right pane (Cmd+2)")
+                Button { activePane.goToRoot() } label: { Label("Root", systemImage: "house") }
+                    .keyboardShortcut("r", modifiers: [.command, .option])
+                    .help("Go to root (TC: Ctrl+\\ — Mac binding Cmd+Option+R, layout-safe)")
                 Button { activePane.focusSearch() } label: { Label("Filter", systemImage: "magnifyingglass") }
                     .keyboardShortcut("f", modifiers: .command)
                     .help("Filter active pane (Cmd+F)")

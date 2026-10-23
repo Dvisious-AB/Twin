@@ -51,6 +51,15 @@ struct PaneView: View {
             viewModel.goUp()
             return .handled
         }
+        .onKeyPress(phases: .down) { press in
+            // Ctrl+backslash: jump to root (Total Commander). Matched by
+            // character so non-US keyboard layouts still work.
+            guard press.modifiers.contains(.control),
+                  press.characters.contains("\\") || press.key == KeyEquivalent(Character("\\"))
+            else { return .ignored }
+            viewModel.goToRoot()
+            return .handled
+        }
         .onKeyPress(.pageUp, phases: .down) { press in
             guard press.modifiers.contains(.control) else { return .ignored }
             viewModel.goUp()

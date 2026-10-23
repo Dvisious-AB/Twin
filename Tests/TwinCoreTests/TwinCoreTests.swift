@@ -200,6 +200,28 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: copy), try Data(contentsOf: big))
     }
 
+    func testWorkspaceStoreAndBatchRename() throws {
+        let suite = "TwinCoreTests.ws.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WorkspaceStore(defaults: defaults, key: "ws")
+        XCTAssertTrue(store.load().isEmpty)
+        let workspace = Workspace(name: "Dev", leftTabs: ["/tmp"], rightTabs: ["/tmp", "/"], activeSide: 1)
+        store.save(workspace)
+        XCTAssertEqual(store.load().first?.name, "Dev")
+        XCTAssertEqual(store.load().first?.activeSide, 1)
+        store.delete(id: workspace.id)
+        XCTAssertTrue(store.load().isEmpty)
+
+        // Batch rename preview is pure and deterministic.
+        var rule = FileActionService.BatchRenameRule()
+        rule.find = "img"
+        rule.replace = "photo"
+        rule.prefix = "2026-"
+        let url = URL(fileURLWithPath: "/tmp/img_01.jpg")
+        XCTAssertEqual(FileActionService.renamedName(for: url, rule: rule, index: 0), "2026-photo_01.jpg")
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

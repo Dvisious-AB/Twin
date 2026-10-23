@@ -76,6 +76,46 @@ public enum FileActionService {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
+    // MARK: - Batch rename (Pro)
+
+    public struct BatchRenameRule: Sendable {
+        public var find: String = ""
+        public var replace: String = ""
+        public var prefix: String = ""
+        public var suffix: String = ""
+        public var addNumbering: Bool = false
+
+        public init() {}
+    }
+
+    /// Computes the new name for one file (pure — used for live preview).
+    public static func renamedName(for url: URL, rule: BatchRenameRule, index: Int) -> String {
+        let ext = url.pathExtension
+        var base = url.deletingPathExtension().lastPathComponent
+        if !rule.find.isEmpty {
+            base = base.replacingOccurrences(of: rule.find, with: rule.replace)
+        }
+        base = rule.prefix + base + rule.suffix
+        if rule.addNumbering {
+            base += " \(index + 1)"
+        }
+        return ext.isEmpty ? base : base + "." + ext
+    }
+
+    /// Renames all items per the rule. Returns how many were renamed.
+    @discardableResult
+    public static func batchRename(items: [URL], rule: BatchRenameRule) throws -> Int {
+        var count = 0
+        for (index, url) in items.enumerated() {
+            let newName = renamedName(for: url, rule: rule, index: index)
+            if newName != url.lastPathComponent {
+                _ = try ArchiveService.rename(item: url, to: newName)
+                count += 1
+            }
+        }
+        return count
+    }
+
     // MARK: - Organize (assistant: sort files into category folders)
 
     public enum FileCategory: String, CaseIterable, Sendable {

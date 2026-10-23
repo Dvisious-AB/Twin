@@ -31,6 +31,13 @@ final class PaneTabs: ObservableObject {
         if activeIndex >= tabs.count { activeIndex = tabs.count - 1 }
     }
 
+    /// Rebuilds tabs from saved paths (workspace restore).
+    func restore(paths: [String], active: Int) {
+        guard !paths.isEmpty else { return }
+        tabs = paths.map { PaneViewModel(initialPath: URL(fileURLWithPath: $0)) }
+        activeIndex = min(max(active, 0), tabs.count - 1)
+    }
+
     func select(at index: Int) {
         guard tabs.indices.contains(index) else { return }
         activeIndex = index
