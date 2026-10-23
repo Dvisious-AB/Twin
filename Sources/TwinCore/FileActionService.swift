@@ -76,6 +76,59 @@ public enum FileActionService {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
+    // MARK: - Organize (assistant: sort files into category folders)
+
+    public enum FileCategory: String, CaseIterable, Sendable {
+        case images = "Images"
+        case documents = "Documents"
+        case archives = "Archives"
+        case audio = "Audio"
+        case video = "Video"
+        case code = "Code"
+        case other = "Other"
+
+        public static func category(for url: URL) -> FileCategory {
+            switch url.pathExtension.lowercased() {
+            case "jpg", "jpeg", "png", "gif", "heic", "tiff", "svg", "webp": return .images
+            case "pdf", "doc", "docx", "txt", "md", "rtf", "pages", "odt": return .documents
+            case "zip", "tar", "gz", "xz", "7z", "rar", "dmg": return .archives
+            case "mp3", "wav", "flac", "aac", "ogg": return .audio
+            case "mp4", "mov", "mkv", "avi", "webm": return .video
+            case "swift", "py", "js", "ts", "go", "rs", "c", "h", "cpp", "java", "json", "yml", "yaml": return .code
+            default: return .other
+            }
+        }
+    }
+
+    /// Preview of an organize run: category -> files that would move there.
+    public static func organizePlan(items: [URL]) -> [FileCategory: [URL]] {
+        var plan: [FileCategory: [URL]] = [:]
+        for url in items {
+            let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+            guard !isDirectory else { continue }
+            plan[FileCategory.category(for: url), default: []].append(url)
+        }
+        return plan
+    }
+
+    /// Moves files into category subfolders of `directory`. Returns moved count per category.
+    @discardableResult
+    public static func organize(items: [URL], in directory: URL) throws -> [FileCategory: Int] {
+        let plan = organizePlan(items: items)
+        var moved: [FileCategory: Int] = [:]
+        for (category, files) in plan {
+            let folder = directory.appendingPathComponent(category.rawValue)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            for file in files {
+                let target = folder.appendingPathComponent(file.lastPathComponent)
+                if FileManager.default.fileExists(atPath: target.path) { continue }
+                try TwinCore.fileCoordinator.moveItem(at: file, to: target)
+                moved[category, default: 0] += 1
+            }
+        }
+        return moved
+    }
+
     // MARK: - Trash (F8 in Total Commander — never hard delete)
 
     public static func trash(items: [URL]) throws {
