@@ -56,6 +56,7 @@ final class PaneViewModel: ObservableObject {
     @Published var lastOperationSummary: String?
     @Published var directorySizes: [String: UInt64] = [:]
     @Published var gitBadges: [String: GitStatusService.Badge] = [:]
+    @Published var insights: FolderInsightsService.Insights?
     private var backHistory: [URL] = []
     private var forwardHistory: [URL] = []
     var canGoBack: Bool { !backHistory.isEmpty }
@@ -177,6 +178,53 @@ final class PaneViewModel: ObservableObject {
         }
         computeDirectorySizes()
         refreshGitBadges()
+        refreshInsights()
+    }
+
+    /// Proactive folder analysis (orphans, risks, oversized) off the main thread.
+    private func refreshInsights() {
+        let folder = currentURL
+        Task.detached(priority: .utility) {
+            let found = FolderInsightsService.analyze(folder: folder)
+            await MainActor.run { [weak self] in
+                if self?.currentURL == folder { self?.insights = found }
+            }
+        }
+    }
+
+    /// Builds KARTOTEK.md in the current folder. Returns its path for display.
+    @discardableResult
+    func buildCatalog() -> String? {
+        do {
+            let output = try FolderInsightsService.generateCatalog(for: currentURL)
+            lastOperationSummary = "Kartotek: \(output.lastPathComponent)"
+            refresh()
+            return output.path
+        } catch {
+            lastOperationSummary = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Moves orphan (loose, long-untouched) files into a Kartotek subfolder.
+    func collectOrphans() {
+        guard let orphans = insights?.orphanFiles, !orphans.isEmpty else { return }
+        let folder = currentURL.appendingPathComponent("Kartotek")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            var moved = 0
+            for url in orphans {
+                let target = folder.appendingPathComponent(url.lastPathComponent)
+                if !FileManager.default.fileExists(atPath: target.path) {
+                    try TwinCore.fileCoordinator.moveItem(at: url, to: target)
+                    moved += 1
+                }
+            }
+            lastOperationSummary = "Collected \(moved) orphan file(s) into Kartotek/"
+        } catch {
+            lastOperationSummary = error.localizedDescription
+        }
+        refresh()
     }
 
     /// Git badges (Pro): computed off the main thread, only when unlocked.

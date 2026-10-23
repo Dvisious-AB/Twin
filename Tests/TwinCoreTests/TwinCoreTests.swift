@@ -293,6 +293,45 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertTrue(TwinHelp.manual.contains("Backspace"))
     }
 
+    func testInsightsCatalogAndPerformance() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        // Orphan: old loose file. Fresh file: not orphan. Risky: world-writable.
+        let old = base.appendingPathComponent("old.txt")
+        try "old".write(to: old, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSinceNow: -200 * 24 * 3600)], ofItemAtPath: old.path)
+        let fresh = base.appendingPathComponent("fresh.txt")
+        try "new".write(to: fresh, atomically: true, encoding: .utf8)
+        try FilePermissionService.setPermissions(FilePermissions(octal: 0o666), for: fresh)
+        try FileManager.default.createDirectory(at: base.appendingPathComponent("EmptyDir"), withIntermediateDirectories: false)
+
+        let insights = FolderInsightsService.analyze(folder: base)
+        XCTAssertTrue(insights.orphanFiles.map(\.lastPathComponent).contains("old.txt"))
+        XCTAssertFalse(insights.orphanFiles.map(\.lastPathComponent).contains("fresh.txt"))
+        XCTAssertEqual(insights.permissionRisks.map(\.url.lastPathComponent), ["fresh.txt"])
+        XCTAssertTrue(insights.emptyFolders.map(\.lastPathComponent).contains("EmptyDir"))
+
+        // Kartotek index lists files with MD5.
+        let catalog = try FolderInsightsService.generateCatalog(for: base)
+        let text = try String(contentsOf: catalog, encoding: .utf8)
+        XCTAssertTrue(text.contains("fresh.txt"))
+        XCTAssertTrue(text.contains("MD5"))
+
+        // Performance guard: 300-file tree analyzed + sized well under generous bounds.
+        let perf = base.appendingPathComponent("perf")
+        try FileManager.default.createDirectory(at: perf, withIntermediateDirectories: true)
+        for index in 0..<300 {
+            try "x".write(to: perf.appendingPathComponent("f\(index).txt"), atomically: true, encoding: .utf8)
+        }
+        let start = Date()
+        _ = FolderInsightsService.analyze(folder: perf)
+        _ = DirectorySizeService.computeSize(of: perf)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 10)
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

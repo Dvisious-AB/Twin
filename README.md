@@ -16,6 +16,11 @@ Lite (gratis): dual-pane med två oberoende NavigationStacks, drag-and-drop
 (NSFilePromise), tabs/panelväxling Cmd+1/Cmd+2, Quick Look på Space,
 instant search per panel, breadcrumbs.
 
+Assistenten (inbyggd, lokal): svarar på hur man gör filsaker i Twin,
+organiserar kataloger, samlar föräldralösa filer (orörda 90+ dagar) till
+Kartotek/, bygger KARTOTEK.md-index och varnar proaktivt för
+världsskrivbara filer. Siri/Shortcuts: "Organize folder with Twin".
+
 Pro ($24.99 / 249 kr one-time, launch 149 kr): Workspaces, Folder Sync,
 Batch Rename, Git badges. StoreKit 2, se `Configuration.storekit`.
 

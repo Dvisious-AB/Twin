@@ -44,6 +44,12 @@ final class AssistantChat: ObservableObject {
     // availability-marked stored properties.
     private var sessionBox: Any?
 
+    /// Appends a completed exchange (used when Twin executes a task directly).
+    func appendExchange(user: String, assistant: String) {
+        messages.append(Message(isUser: true, text: user))
+        messages.append(Message(isUser: false, text: assistant))
+    }
+
     func clear() {
         messages = [messages.first].compactMap { $0 }
         sessionBox = nil

@@ -324,6 +324,15 @@ struct PaneView: View {
             if let summary = viewModel.lastOperationSummary {
                 Text("· \(summary)").foregroundStyle(.orange)
             }
+            if let insights = viewModel.insights, !insights.permissionRisks.isEmpty {
+                Label("\(insights.permissionRisks.count) risk", systemImage: "exclamationmark.shield")
+                    .foregroundStyle(.orange)
+                    .help("Files anyone can write to — open Assistant for details")
+            }
+            if let insights = viewModel.insights, !insights.orphanFiles.isEmpty {
+                Text("· \(insights.orphanFiles.count) orphans")
+                    .help("Loose files untouched for over 90 days — Assistant can collect them")
+            }
             Spacer()
             if let free = freeSpaceText {
                 Text(free)

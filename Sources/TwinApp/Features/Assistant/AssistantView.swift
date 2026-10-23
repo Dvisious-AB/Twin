@@ -14,9 +14,12 @@ struct AssistantView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            organizeSection
+            proactiveSection
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
+            organizeSection
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
             Divider()
             transcript
             suggestions
@@ -40,6 +43,55 @@ struct AssistantView: View {
             Button("Close") { dismiss() }
         }
         .padding(14)
+    }
+
+    /// Proactive findings for this folder — shown without being asked.
+    @ViewBuilder
+    private var proactiveSection: some View {
+        if let insights = viewModel.insights, insights.hasFindings {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Twin noticed").font(.subheadline.bold())
+                if !insights.permissionRisks.isEmpty {
+                    Label(
+                        riskText(insights),
+                        systemImage: "exclamationmark.shield"
+                    )
+                    .font(.caption).foregroundStyle(.orange)
+                }
+                if !insights.orphanFiles.isEmpty {
+                    HStack(spacing: 8) {
+                        Label("\(insights.orphanFiles.count) orphan file(s) untouched for 90+ days.",
+                              systemImage: "tray")
+                            .font(.caption)
+                        Button("Collect into Kartotek/") { viewModel.collectOrphans() }
+                            .controlSize(.small)
+                    }
+                }
+                if !insights.oversizedFiles.isEmpty {
+                    Label(oversizedText(insights), systemImage: "externaldrive")
+                        .font(.caption)
+                }
+                if !insights.emptyFolders.isEmpty {
+                    Label("\(insights.emptyFolders.count) empty folder(s).", systemImage: "folder")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Button("Build Kartotek (index of this folder)") {
+                    _ = viewModel.buildCatalog()
+                }
+                .controlSize(.small)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func riskText(_ insights: FolderInsightsService.Insights) -> String {
+        let octal = insights.permissionRisks.first?.octal ?? ""
+        return "\(insights.permissionRisks.count) file(s) anyone can write to (\(octal)) — check Permissions with Cmd+I."
+    }
+
+    private func oversizedText(_ insights: FolderInsightsService.Insights) -> String {
+        let biggest = insights.oversizedFiles.first?.url.lastPathComponent ?? ""
+        return "\(insights.oversizedFiles.count) file(s) over 100 MB — biggest: \(biggest)."
     }
 
     private var organizeSection: some View {
@@ -148,6 +200,15 @@ struct AssistantView: View {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty else { return }
         draft = ""
+        // Task execution: kartotek/catalog commands run immediately.
+        let lowered = question.lowercased()
+        if lowered.contains("kartotek") || lowered.contains("catalog") || lowered.contains("index") {
+            if let path = viewModel.buildCatalog() {
+                chat.appendExchange(user: question, assistant: "Done — I created the catalog at \(path). It lists every file with" +
+                    "size, modified date and MD5.")
+                return
+            }
+        }
         chat.send(question, folder: viewModel.currentURL, folderSummary: FolderSummary.summary(for: viewModel))
     }
 }
