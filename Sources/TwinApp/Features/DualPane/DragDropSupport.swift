@@ -29,7 +29,7 @@ final class FilePromiseProviderDelegate: NSObject, NSFilePromiseProviderDelegate
             if FileManager.default.fileExists(atPath: url.path) {
                 try FileManager.default.removeItem(at: url)
             }
-            try FileManager.default.copyItem(at: sourceURL, to: url)
+            try StreamedFileCopy.copy(from: sourceURL, to: url)
             completionHandler(nil)
         } catch {
             completionHandler(error)
@@ -40,6 +40,31 @@ final class FilePromiseProviderDelegate: NSObject, NSFilePromiseProviderDelegate
         let queue = OperationQueue()
         queue.qualityOfService = .userInitiated
         return queue
+    }
+}
+
+/// Chunked copy that never loads a whole file into memory — safe for
+/// multi-GB files dragged between panes or out to Finder.
+enum StreamedFileCopy {
+    static let chunkSize = 1 << 20 // 1 MiB
+
+    static func copy(from source: URL, to destination: URL) throws {
+        let values = try source.resourceValues(forKeys: [.isDirectoryKey])
+        if values.isDirectory == true {
+            // Directories: let FileManager handle the tree copy.
+            try FileManager.default.copyItem(at: source, to: destination)
+            return
+        }
+        FileManager.default.createFile(atPath: destination.path, contents: nil)
+        let reader = try FileHandle(forReadingFrom: source)
+        defer { try? reader.close() }
+        let writer = try FileHandle(forWritingTo: destination)
+        defer { try? writer.close() }
+        while true {
+            let chunk = try reader.read(upToCount: chunkSize) ?? Data()
+            if chunk.isEmpty { break }
+            try writer.write(contentsOf: chunk)
+        }
     }
 }
 
@@ -85,7 +110,7 @@ enum DragDropSupport {
                     at: tempURL.deletingLastPathComponent(),
                     withIntermediateDirectories: true
                 )
-                try FileManager.default.copyItem(at: url, to: tempURL)
+                try StreamedFileCopy.copy(from: url, to: tempURL)
                 completion(tempURL, true, nil)
             } catch {
                 completion(nil, false, error)
