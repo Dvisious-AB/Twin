@@ -1,4 +1,7 @@
 name: Twin
+packages:
+  Twin:
+    path: .
 options:
   bundleIdPrefix: se.dvisious
   deploymentTarget:
@@ -20,8 +23,6 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - Sources/TwinApp
-      - Sources/TwinCore
-      - Sources/TwinPro
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: se.dvisious.twin
@@ -30,6 +31,10 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Sources/TwinApp/Twin.entitlements
     dependencies:
       - target: FinderSyncExtension
+      - package: Twin
+        product: TwinCore
+      - package: Twin
+        product: TwinPro
     info:
       path: Sources/TwinApp/Info.plist
       properties:
@@ -57,32 +62,12 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: se.dvisious.twin.findersync
         INFOPLIST_FILE: Sources/FinderSync/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/FinderSync/FinderSync.entitlements
-  TwinLite:
-    type: framework
-    platform: macOS
-    deploymentTarget: "14.0"
-    sources:
-      - Sources/TwinLite
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: se.dvisious.twin.lite
-  TwinPro:
-    type: framework
-    platform: macOS
-    deploymentTarget: "14.0"
-    sources:
-      - Sources/TwinPro
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: se.dvisious.twin.pro
 schemes:
   Twin:
     build:
       targets:
         TwinApp: all
         FinderSyncExtension: all
-        TwinLite: all
-        TwinPro: all
     run:
       config: Debug
       executable: TwinApp

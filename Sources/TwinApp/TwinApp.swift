@@ -1,4 +1,5 @@
 import SwiftUI
+import TwinCore
 
 @main
 struct TwinApp: App {

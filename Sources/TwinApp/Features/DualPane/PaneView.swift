@@ -154,24 +154,7 @@ struct PaneView: View {
     }
 
     private var breadcrumbs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                ForEach(Array(viewModel.breadcrumbs.enumerated()), id: \.element.id) { index, crumb in
-                    if index > 0 {
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Button(crumb.name) {
-                        viewModel.navigateToBreadcrumb(crumb)
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-                    .lineLimit(1)
-                    .help(crumb.url.path)
-                }
-            }
-        }
+        BreadcrumbBar(crumbs: viewModel.breadcrumbs) { viewModel.navigateToBreadcrumb($0) }
     }
 
     private var viewModeToggle: some View {
@@ -251,8 +234,7 @@ struct PaneView: View {
         Table(sortedItems, selection: $viewModel.selection, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.name) { item in
                 HStack(spacing: 6) {
-                    Image(systemName: item.isDirectory ? "folder.fill" : "doc")
-                        .foregroundStyle(item.isDirectory ? Color.blue : Color.secondary)
+                    FileItemIcon(item: item)
                     Text(item.name).lineLimit(1)
                 }
             }
@@ -286,9 +268,7 @@ struct PaneView: View {
             LazyVGrid(columns: iconColumns, spacing: 14) {
                 ForEach(viewModel.filteredItems, id: \.url) { item in
                     VStack(spacing: 6) {
-                        Image(systemName: item.isDirectory ? "folder.fill" : "doc")
-                            .font(.system(size: 32))
-                            .foregroundStyle(item.isDirectory ? .blue : .secondary)
+                        FileItemIcon(item: item, size: 32)
                         Text(item.name)
                             .font(.caption)
                             .lineLimit(2)

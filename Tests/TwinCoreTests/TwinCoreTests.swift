@@ -132,6 +132,53 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: base.appendingPathComponent("Code/c.swift").path))
     }
 
+    func testCreateFolderRenameUnpack() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let folder = try ArchiveService.createFolder(named: "New Folder", in: base)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path))
+        XCTAssertThrowsError(try ArchiveService.createFolder(named: "New Folder", in: base))
+        XCTAssertThrowsError(try ArchiveService.createFolder(named: "  ", in: base))
+
+        let renamed = try ArchiveService.rename(item: folder, to: "Renamed")
+        XCTAssertEqual(renamed.lastPathComponent, "Renamed")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+
+        // Pack then unpack round-trip.
+        let file = renamed.appendingPathComponent("note.txt")
+        try "pack me".write(to: file, atomically: true, encoding: .utf8)
+        let archive = try FileActionService.compress(items: [renamed], in: base)
+        let unpacked = try ArchiveService.unpack(archive: archive)
+        let restored = unpacked.appendingPathComponent("Renamed/note.txt")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: restored.path))
+    }
+
+    func testBatchCopyMoveStreamSkipsExisting() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = base.appendingPathComponent("src")
+        let dest = base.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        try "new".write(to: source.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        try "old".write(to: dest.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        try "b".write(to: source.appendingPathComponent("b.txt"), atomically: true, encoding: .utf8)
+
+        var finished: (done: Int, skipped: Int)?
+        for try await event in TwinCore.fileCoordinator.batchCopyMove(
+            urls: [source.appendingPathComponent("a.txt"), source.appendingPathComponent("b.txt")],
+            to: dest, move: false
+        ) {
+            if case .finished(let done, let skipped) = event { finished = (done, skipped) }
+        }
+        XCTAssertEqual(finished?.done, 1)
+        XCTAssertEqual(finished?.skipped, 1)
+        // Existing file was NOT overwritten.
+        XCTAssertEqual(try String(contentsOf: dest.appendingPathComponent("a.txt"), encoding: .utf8), "old")
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

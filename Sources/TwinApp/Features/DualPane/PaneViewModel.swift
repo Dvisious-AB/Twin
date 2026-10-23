@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import TwinCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -28,6 +29,10 @@ enum PaneViewMode: String, CaseIterable, Identifiable {
         case .icon: return "Icons"
         }
     }
+}
+
+extension Notification.Name {
+    static let twinFilesChanged = Notification.Name("se.dvisious.twin.filesChanged")
 }
 
 struct Breadcrumb: Identifiable, Hashable {
@@ -70,6 +75,7 @@ final class PaneViewModel: ObservableObject {
     @Published var operationLabel: String?
 
     private let bookmarkStore: BookmarkStore
+    private var filesChangedObserver: NSObjectProtocol?
 
     init(initialPath: URL, bookmarkStore: BookmarkStore = .shared) {
         self.bookmarkStore = bookmarkStore
@@ -78,6 +84,11 @@ final class PaneViewModel: ObservableObject {
         self.currentURL = resolved
         _ = bookmarkStore.startAccessing(resolved)
         refresh()
+        filesChangedObserver = NotificationCenter.default.addObserver(
+            forName: .twinFilesChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
     }
 
     // MARK: - Breadcrumbs
@@ -271,7 +282,8 @@ final class PaneViewModel: ObservableObject {
         await performFileOperation(urls: Array(selection), to: dest, move: true)
     }
 
-    /// Copies/moves `urls` into `dest`, publishing progress 0...1 as it goes.
+    /// Copies/moves into `dest` via TwinCore's shared batch service,
+    /// publishing its progress events. No file-loop lives in the UI layer.
     func performFileOperation(urls: [URL], to dest: URL, move: Bool) async {
         guard !urls.isEmpty, !isPerformingOperation else { return }
         isPerformingOperation = true
@@ -282,34 +294,20 @@ final class PaneViewModel: ObservableObject {
             operationLabel = nil
             operationProgress = 0
         }
-
-        let total = Double(urls.count)
-        var skipped = 0
-        for (index, url) in urls.enumerated() {
-            // Yield so SwiftUI can render the progress update.
-            await Task.yield()
-            let target = dest.appendingPathComponent(url.lastPathComponent)
-            if FileManager.default.fileExists(atPath: target.path) {
-                skipped += 1
-                operationProgress = Double(index + 1) / total
-                continue
-            }
-            do {
-                if move {
-                    try TwinCore.fileCoordinator.moveItem(at: url, to: target)
-                } else {
-                    try TwinCore.fileCoordinator.copyItem(at: url, to: target)
+        do {
+            for try await event in TwinCore.fileCoordinator.batchCopyMove(urls: urls, to: dest, move: move) {
+                switch event {
+                case .progress(let value):
+                    operationProgress = value
+                case .finished(let done, let skipped):
+                    lastOperationSummary = skipped > 0
+                        ? "\(move ? "Moved" : "Copied") \(done), skipped \(skipped) existing"
+                        : nil
                 }
-            } catch {
-                // Keep going for remaining items; progress still advances.
-                continue
             }
-            operationProgress = Double(index + 1) / total
+        } catch {
+            lastOperationSummary = error.localizedDescription
         }
-        let done = urls.count - skipped
-        lastOperationSummary = skipped > 0
-            ? "\(move ? "Moved" : "Copied") \(done), skipped \(skipped) existing"
-            : nil
         refresh()
     }
 
@@ -322,7 +320,13 @@ final class PaneViewModel: ObservableObject {
         // Filter out drops of items already in this folder (no-op self-drop).
         let incoming = urls.filter { $0.deletingLastPathComponent() != currentURL }
         guard !incoming.isEmpty else { return false }
-        await performFileOperation(urls: incoming, to: currentURL, move: false)
+        // Option held during the drop means move (Finder/TC convention),
+        // a plain drop copies. The flag is read from the current event.
+        let move = NSApplication.shared.currentEvent?.modifierFlags.contains(.option) ?? false
+        await performFileOperation(urls: incoming, to: currentURL, move: move)
+        if move {
+            NotificationCenter.default.post(name: .twinFilesChanged, object: nil)
+        }
         return true
     }
 
@@ -388,6 +392,40 @@ final class PaneViewModel: ObservableObject {
             lastOperationSummary = error.localizedDescription
         }
         refresh()
+    }
+
+    func createFolder(named name: String) {
+        do {
+            let folder = try ArchiveService.createFolder(named: name, in: currentURL)
+            lastOperationSummary = "Created \(folder.lastPathComponent)"
+            refresh()
+            selection = [folder]
+        } catch { lastOperationSummary = error.localizedDescription }
+    }
+
+    func renameSelected(to newName: String) {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first else { return }
+        do {
+            let renamed = try ArchiveService.rename(item: url, to: newName)
+            lastOperationSummary = "Renamed to \(renamed.lastPathComponent)"
+            refresh()
+            selection = [renamed]
+        } catch { lastOperationSummary = error.localizedDescription }
+    }
+
+    var selectedIsArchive: Bool {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first else { return false }
+        return ArchiveService.isArchive(url)
+    }
+
+    func unpackSelected() {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first else { return }
+        do {
+            let folder = try ArchiveService.unpack(archive: url)
+            lastOperationSummary = "Unpacked to \(folder.lastPathComponent)"
+            refresh()
+            selection = [folder]
+        } catch { lastOperationSummary = error.localizedDescription }
     }
 
     /// Organize assistant: move all loose files here into category folders.

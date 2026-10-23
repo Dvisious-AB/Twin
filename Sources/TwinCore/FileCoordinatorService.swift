@@ -81,25 +81,53 @@ public final class FileCoordinatorService: @unchecked Sendable {
 
     // MARK: - Batch with progress
 
-    /// Copies (or moves) items into a directory, reporting 0...1 progress per item.
-    /// Progress handler is called on the caller's context; hop to MainActor in UI code.
-    public func performBatch(
+    /// Events from a batch copy/move. UI consumes this instead of
+    /// reimplementing the loop — one implementation, shared everywhere.
+    public enum BatchEvent: Sendable {
+        case progress(Double)
+        case finished(done: Int, skipped: Int)
+    }
+
+    /// Copies (or moves) items into a directory as an async sequence of
+    /// progress events. Existing targets are skipped (never silently
+    /// overwritten) and counted in the final event.
+    public func batchCopyMove(
         urls: [URL],
         to directory: URL,
-        move: Bool,
-        progress: @Sendable (Double) -> Void
-    ) async throws {
-        guard !urls.isEmpty else { progress(1); return }
-        let total = Double(urls.count)
-        for (index, url) in urls.enumerated() {
-            try Task.checkCancellation()
-            let destination = directory.appendingPathComponent(url.lastPathComponent)
-            if move {
-                try moveItem(at: url, to: destination)
-            } else {
-                try copyItem(at: url, to: destination)
+        move: Bool
+    ) -> AsyncThrowingStream<BatchEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard !urls.isEmpty else {
+                        continuation.yield(.finished(done: 0, skipped: 0))
+                        continuation.finish()
+                        return
+                    }
+                    let total = Double(urls.count)
+                    var done = 0
+                    var skipped = 0
+                    for (index, url) in urls.enumerated() {
+                        try Task.checkCancellation()
+                        let destination = directory.appendingPathComponent(url.lastPathComponent)
+                        if FileManager.default.fileExists(atPath: destination.path) {
+                            skipped += 1
+                        } else if move {
+                            try self.moveItem(at: url, to: destination)
+                            done += 1
+                        } else {
+                            try self.copyItem(at: url, to: destination)
+                            done += 1
+                        }
+                        continuation.yield(.progress(Double(index + 1) / total))
+                    }
+                    continuation.yield(.finished(done: done, skipped: skipped))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
             }
-            progress(Double(index + 1) / total)
+            continuation.onTermination = { _ in task.cancel() }
         }
     }
 }

@@ -1,11 +1,20 @@
 import AppKit
 import SwiftUI
+import TwinPro
 
 struct DualPaneView: View {
-    @StateObject var left = PaneViewModel(initialPath: FileManager.default.homeDirectoryForCurrentUser)
-    @StateObject var right = PaneViewModel(
-        initialPath: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents")
-    )
+    @StateObject var leftTabs: PaneTabs
+    @StateObject var rightTabs: PaneTabs
+
+    init() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        _leftTabs = StateObject(wrappedValue: PaneTabs(first: home))
+        _rightTabs = StateObject(wrappedValue: PaneTabs(first: home.appendingPathComponent("Documents")))
+    }
+
+    private var left: PaneViewModel { leftTabs.active }
+    private var right: PaneViewModel { rightTabs.active }
+    private var activeTabs: PaneTabs { selected == 0 ? leftTabs : rightTabs }
     @State var selected: Int = 0
     @FocusState private var paneFocus: Int?
     @State private var showPaywall = false
@@ -14,7 +23,28 @@ struct DualPaneView: View {
     @State private var passphrase = ""
     @State private var showPermissions = false
     @State private var showAssistant = false
+    @State private var showNewFolder = false
+    @State private var showRename = false
+    @State private var newName = ""
     @ObservedObject private var store = StoreKitManager.shared
+
+    private func nameSheet(title: String, prompt: String, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 14) {
+            Text(title).font(.headline)
+            TextField(prompt, text: $newName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 260)
+            HStack {
+                Button("Cancel") { showNewFolder = false; showRename = false }
+                Spacer()
+                Button(title) { action(); showNewFolder = false; showRename = false }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
+    }
 
     /// Total Commander-style function bar: the pane operations live here,
     /// always visible, instead of only in the top toolbar.
@@ -58,6 +88,20 @@ struct DualPaneView: View {
                 .keyboardShortcut("e", modifiers: [.command, .shift])
                 .disabled(activePane.selection.isEmpty)
                 .help("Encrypt/decrypt with passphrase (Cmd+Shift+E)")
+            Button("New Folder") { newName = "New Folder"; showNewFolder = true }
+                .keyboardShortcut("7", modifiers: .command)
+                .help("New folder (F7 / Cmd+7)")
+            Button("Rename") {
+                newName = activePane.selection.first?.lastPathComponent ?? ""
+                showRename = true
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .disabled(activePane.selection.count != 1)
+            .help("Rename selected (Shift+F6 / Cmd+Shift+R)")
+            Button("Unpack") { activePane.unpackSelected() }
+                .keyboardShortcut("u", modifiers: [.command, .shift])
+                .disabled(!activePane.selectedIsArchive)
+                .help("Unpack zip (Alt+F6 / Cmd+Shift+U)")
             Button("Permissions") { showPermissions = true }
                 .keyboardShortcut("i", modifiers: .command)
                 .disabled(activePane.selection.count != 1)
@@ -73,6 +117,68 @@ struct DualPaneView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private func paneColumn(tabs: PaneTabs, side: Int) -> some View {
+        VStack(spacing: 0) {
+            tabStrip(tabs: tabs, side: side)
+            PaneView(
+                viewModel: tabs.active, isActive: selected == side,
+                onRequestPaneSwitch: { switchPane() },
+                onChooseFolder: { chooseFolder(for: tabs.active) }
+            )
+            .id(ObjectIdentifier(tabs.active))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .focused($paneFocus, equals: side)
+            .onTapGesture { selected = side; paneFocus = side }
+        }
+    }
+
+    private func tabStrip(tabs: PaneTabs, side: Int) -> some View {
+        HStack(spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(Array(tabs.tabs.enumerated()), id: \.offset) { index, tab in
+                        HStack(spacing: 4) {
+                            Button(tab.currentURL.lastPathComponent) {
+                                tabs.select(at: index)
+                                selected = side
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption)
+                            .lineLimit(1)
+                            if tabs.tabs.count > 1 {
+                                Button {
+                                    tabs.close(at: index)
+                                } label: {
+                                    Image(systemName: "xmark").font(.caption2)
+                                }
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            index == tabs.activeIndex
+                                ? Color.accentColor.opacity(selected == side ? 0.35 : 0.18)
+                                : Color.secondary.opacity(0.12)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+            Button {
+                tabs.newTab()
+                selected = side
+            } label: {
+                Image(systemName: "plus").font(.caption)
+            }
+            .buttonStyle(.borderless)
+            .help("New tab")
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
@@ -103,22 +209,8 @@ struct DualPaneView: View {
         // centered band and leaked the folder name as window title — removed.
         // Each pane keeps its own navigation state in its view model.
         HSplitView {
-            PaneView(
-                    viewModel: left, isActive: selected == 0,
-                    onRequestPaneSwitch: { switchPane() },
-                    onChooseFolder: { chooseFolder(for: left) }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .focused($paneFocus, equals: 0)
-                .onTapGesture { selected = 0; paneFocus = 0 }
-            PaneView(
-                    viewModel: right, isActive: selected == 1,
-                    onRequestPaneSwitch: { switchPane() },
-                    onChooseFolder: { chooseFolder(for: right) }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .focused($paneFocus, equals: 1)
-                .onTapGesture { selected = 1; paneFocus = 1 }
+            paneColumn(tabs: leftTabs, side: 0)
+            paneColumn(tabs: rightTabs, side: 1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
             functionBar
@@ -131,6 +223,16 @@ struct DualPaneView: View {
         }
         .sheet(isPresented: $showAssistant) {
             AssistantView(viewModel: activePane)
+        }
+        .sheet(isPresented: $showNewFolder) {
+            nameSheet(title: "New Folder", prompt: "Folder name") {
+                activePane.createFolder(named: newName)
+            }
+        }
+        .sheet(isPresented: $showRename) {
+            nameSheet(title: "Rename", prompt: "New name") {
+                activePane.renameSelected(to: newName)
+            }
         }
         .sheet(isPresented: $showEncryptPrompt) {
             VStack(spacing: 14) {
@@ -172,6 +274,13 @@ struct DualPaneView: View {
         }
         .toolbar {
             ToolbarItemGroup {
+                Button { activeTabs.newTab() } label: { Label("New Tab", systemImage: "plus.rectangle") }
+                    .keyboardShortcut("t", modifiers: .command)
+                    .help("New tab in active pane (Cmd+T)")
+                Button { activeTabs.closeActive() } label: { Label("Close Tab", systemImage: "xmark.rectangle") }
+                    .keyboardShortcut("w", modifiers: .command)
+                    .disabled(activeTabs.tabs.count <= 1)
+                    .help("Close active tab (Cmd+W)")
                 Button { selected = 0; paneFocus = 0 } label: { Label("Left", systemImage: "rectangle.leadinghalf.inset.filled") }
                     .keyboardShortcut("1", modifiers: .command)
                     .help("Activate left pane (Cmd+1)")
