@@ -62,13 +62,23 @@ final class TwinUITests: XCTestCase {
     // The assistant opens from the function bar's More menu and answers from built-in help.
     // Timeouts are generous: cold CI runners take >100 s for first launch
     // (observed 122 s for a sibling test) while local runs take ~8 s.
-    func testAssistantAnswersEncryptionQuestion() {
+    func testAssistantAnswersEncryptionQuestion() throws {
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 30))
-        let more = app.menuButtons["More"]
-        // First-launch render on a cold CI runner measured beyond 30 s
-        // (window exists, function bar not yet in the AX tree).
-        XCTAssertTrue(more.waitForExistence(timeout: 120))
-        more.click()
+        // Readiness gate proven on CI (this button appears once the
+        // function bar is in the AX tree; cold first render is slow).
+        XCTAssertTrue(app.buttons["F5 Copy"].waitForExistence(timeout: 120))
+        // SwiftUI Menu surfaces as different AX types across macOS
+        // versions (menuButton locally, popUpButton on the CI runner),
+        // so poll the candidate types once the bar is rendered.
+        var more: XCUIElement?
+        let deadline = Date().addingTimeInterval(30)
+        while more == nil, Date() < deadline {
+            more = [app.menuButtons["More"], app.popUpButtons["More"], app.buttons["More"]]
+                .first { $0.exists }
+            if more == nil { Thread.sleep(forTimeInterval: 1) }
+        }
+        let moreButton = try XCTUnwrap(more, "More menu button not found in function bar")
+        moreButton.click()
         let assistant = app.menuItems["Assistant…"]
         XCTAssertTrue(assistant.waitForExistence(timeout: 60))
         assistant.click()
