@@ -7,8 +7,9 @@
 - [x] `./Scripts/generate.sh` grön (XcodeGen från project.yml)
 - [x] `./Scripts/build.sh` — `BUILD SUCCEEDED` (scheme Twin, macOS)
 - [x] `swift build` grön (TwinCore Swift Package)
-- [ ] SwiftLint — ej installerat på denna maskin (`brew install swiftlint`), kör före release
+- [x] SwiftLint 0.65.1 — `swiftlint lint --strict` 0 violations (17 filer), körs även i CI
 - [x] Ingen `*.xcodeproj` trackad i git (`git ls-files | grep xcodeproj` tom)
+- [x] CI: `.github/workflows/build.yml` (lint, generate, build, swift test på macos-14)
 
 ## Sandbox & entitlements
 

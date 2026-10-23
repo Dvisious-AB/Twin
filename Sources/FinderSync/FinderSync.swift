@@ -19,7 +19,7 @@ final class FinderSyncExtension: FIFinderSync {
 
     override var toolbarItemImage: NSImage {
         NSImage(systemSymbolName: "rectangle.split.2x1", accessibilityDescription: "Twin View")
-            ?? NSImage(named: NSImage.folderName)!
+            ?? NSImage()
     }
 
     // MARK: - Directory observation / badges
