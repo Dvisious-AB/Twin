@@ -10,7 +10,7 @@ public final class BookmarkStore: @unchecked Sendable {
 
     public static let shared = BookmarkStore()
 
-    public static let defaultsKey = "com.dvisious.twin.bookmarks.v1"
+    public static let defaultsKey = "se.dvisious.twin.bookmarks.v1"
 
     private let defaults: UserDefaults
     private let key: String

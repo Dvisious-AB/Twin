@@ -18,7 +18,7 @@
           "locale" : "sv_SE"
         }
       ],
-      "productID" : "com.dvisious.twin.pro",
+      "productID" : "se.dvisious.twin.pro",
       "referenceName" : "Twin Pro Lifetime",
       "type" : "NonConsumable"
     }

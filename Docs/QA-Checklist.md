@@ -22,10 +22,10 @@
 - [x] `Sources/TwinApp/PrivacyInfo.xcprivacy` — ingen tracking, inga insamlade
       datatyper, UserDefaults (CA92.1) + FileTimestamp (C617.1) deklarerade
 - [x] `twin://` URL-scheme registrerad via project.yml (överlever generate.sh)
-- [x] StoreKit: `Configuration.storekit` med `com.dvisious.twin.pro`
+- [x] StoreKit: `Configuration.storekit` med `se.dvisious.twin.pro`
 
 ## Kvar före submit
 
 - [ ] Hardened runtime vid arkivering (Xcode Archive, endast där)
-- [ ] App Store Connect: produkt `com.dvisious.twin.pro`, pris 249 kr (launch 149 kr)
+- [ ] App Store Connect: produkt `se.dvisious.twin.pro`, pris 249 kr (launch 149 kr)
 - [ ] Screenshots enligt README-sektionen "Screenshots"
