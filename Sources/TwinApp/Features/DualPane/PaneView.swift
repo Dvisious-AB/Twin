@@ -21,6 +21,7 @@ struct PaneView: View {
             }
             statusBar
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .border(isActive ? Color.accentColor : Color.clear, width: 2)
         .overlay {
             if viewModel.isDropTargeted {
@@ -111,7 +112,8 @@ struct PaneView: View {
             }
         }
         .pickerStyle(.segmented)
-        .frame(width: 72)
+        .labelsHidden()
+        .frame(width: 64)
         .help("Toggle list / icon view")
     }
 
@@ -128,7 +130,9 @@ struct PaneView: View {
             } description: {
                 Text(viewModel.loadState.userMessage)
             } actions: {
-                Button("Try Again") { viewModel.refresh() }
+                if viewModel.loadState.isError {
+                    Button("Try Again") { viewModel.refresh() }
+                }
             }
         } else {
             paneContent
@@ -183,7 +187,7 @@ struct PaneView: View {
             }
             .width(min: 70, ideal: 90)
             TableColumn("Modified", value: \.modifiedDate) { item in
-                Text(item.modifiedDate, format: .dateTime.year().month().day().hour().minute())
+                Text(item.modifiedDate, format: .dateTime.day().month(.abbreviated).hour().minute())
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }

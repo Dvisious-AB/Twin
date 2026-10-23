@@ -53,3 +53,22 @@ inte en användbar filhanterare. Punkterna nedan är i prioritetsordning.
 Table-vy med sorterbara kolumner, statusrad, sök-tomt-tillstånd, Cmd+F till
 filtret, konfliktrapport i stället för tyst överskrivning, starkare
 aktivmarkering och borttagen sökvägsredundans.
+
+## Skärmbild från användaren 2026-10-23 — nya fynd
+
+Användarens capture av körande app bekräftade och utökade granskningen:
+
+- **Layoutkollaps (kritiskt, nu åtgärdat):** allt innehåll låg i ett band
+  i fönstrets mitt med stora tomma ytor över/under. Orsak:
+  `NavigationStack` inuti `HSplitView`. Borttaget; panelerna fyller nu
+  hela fönstret och mappnamnet läcker inte längre som fönstertitel ("Data").
+- **"View"-texten radbröts vertikalt** ("V/ie/w") i view-väljaren.
+  Åtgärdat med `labelsHidden`.
+- **"Try Again" på tom mapp** var meningslöst — visas nu bara vid fel.
+- **Textpiller i verktygsraden** ersatta med ikon+text (Label/systembilder).
+- Datumformatet förkortat.
+- Fortfarande öppet: appen startar i sandbox-containerns Data-mapp
+  (`~/Library/Containers/se.dvisious.twin/Data`) eftersom sandlådan pekar
+  hemkatalogen dit. För en filhanterare krävs en medveten startpunkt —
+  förslagsvis senaste bokmärkta mappen, annars en välj-mapp-uppmaning.
+  Spåras på #9.
