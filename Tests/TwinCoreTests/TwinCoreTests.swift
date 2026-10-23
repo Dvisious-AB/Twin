@@ -283,6 +283,16 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertNotNil(GitStatusService.repositoryRoot(for: base))
     }
 
+    func testTwinHelpAnswers() {
+        XCTAssertTrue(TwinHelp.answer(to: "How do I encrypt a file?").contains("Cmd+Shift+E"))
+        XCTAssertTrue(TwinHelp.answer(to: "hur skyddar jag en mapp med behörigheter?").contains("Cmd+I"))
+        XCTAssertTrue(TwinHelp.answer(to: "How do I copy to the other pane?").contains("Cmd+5"))
+        XCTAssertTrue(TwinHelp.answer(to: "what do git badges mean?").lowercased().contains("git"))
+        XCTAssertEqual(TwinHelp.answer(to: "unrelated question about weather"), TwinHelp.fallbackAnswer)
+        XCTAssertFalse(TwinHelp.suggestions.isEmpty)
+        XCTAssertTrue(TwinHelp.manual.contains("Backspace"))
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
