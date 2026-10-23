@@ -246,8 +246,11 @@ final class PaneViewModel: ObservableObject {
     }
 
     /// Background directory sizes (cached in DirectorySizeService).
+    /// TCC-protected folders are never sized in the background (they
+    /// would trigger macOS consent prompts); they show "--".
     private func computeDirectorySizes() {
         let directories = items.filter(\.isDirectory).map(\.url)
+            .filter { !DirectorySizeService.isProtectedFolder($0) }
         for url in directories where directorySizes[url.path] == nil && !computingSizes.contains(url.path) {
             computingSizes.insert(url.path)
             Task { [weak self] in

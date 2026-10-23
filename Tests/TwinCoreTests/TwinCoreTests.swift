@@ -98,6 +98,24 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
     }
 
+    func testProtectedFolderDetection() {
+        let protected = [
+            "/Users/aelmen/Desktop", "/Users/aelmen/Documents", "/Users/aelmen/Downloads",
+            "/Users/aelmen/Pictures", "/Users/aelmen/Movies", "/Users/aelmen/Music",
+            "/Users/aelmen/Library"
+        ]
+        for path in protected {
+            XCTAssertTrue(DirectorySizeService.isProtectedFolder(URL(fileURLWithPath: path)), path)
+        }
+        let allowed = [
+            "/Users/aelmen", "/Users/aelmen/Documents/Codex", "/Users/aelmen/Projects",
+            "/Users", "/tmp/Desktop", "/Volumes/Data/Desktop"
+        ]
+        for path in allowed {
+            XCTAssertFalse(DirectorySizeService.isProtectedFolder(URL(fileURLWithPath: path)), path)
+        }
+    }
+
     func testPermissionsRoundTrip() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
