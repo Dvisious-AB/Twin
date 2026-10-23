@@ -55,6 +55,7 @@ struct DualPaneView: View {
     /// Total Commander-style function bar: the pane operations live here,
     /// always visible, instead of only in the top toolbar.
     private var functionBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
             Text(activePane.currentURL.lastPathComponent)
                 .font(.caption.bold())
@@ -148,6 +149,7 @@ struct DualPaneView: View {
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(activePane.selection.isEmpty)
                 .help("Move to Trash (F8 / Cmd+Delete)")
+        }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
