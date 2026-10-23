@@ -1,6 +1,6 @@
 name: Twin
 options:
-  bundleIdPrefix: com.anderselmen
+  bundleIdPrefix: com.dvisious
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "15.0"
@@ -23,7 +23,7 @@ targets:
       - Sources/TwinCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.anderselmen.twin
+        PRODUCT_BUNDLE_IDENTIFIER: com.dvisious.twin
         INFOPLIST_FILE: Sources/TwinApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/TwinApp/Twin.entitlements
     dependencies:
@@ -33,7 +33,7 @@ targets:
       properties:
         CFBundleName: Twin
         CFBundleDisplayName: Twin
-        CFBundleIdentifier: com.anderselmen.twin
+        CFBundleIdentifier: com.dvisious.twin
         CFBundleVersion: "1"
         CFBundleShortVersionString: "1.0.0"
         CFBundlePackageType: APPL
@@ -41,7 +41,7 @@ targets:
         NSPrincipalClass: NSApplication
         NSHighResolutionCapable: true
         CFBundleURLTypes:
-          - CFBundleURLName: com.anderselmen.twin
+          - CFBundleURLName: com.dvisious.twin
             CFBundleURLSchemes:
               - twin
   FinderSyncExtension:
@@ -52,7 +52,7 @@ targets:
       - Sources/FinderSync
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.anderselmen.twin.findersync
+        PRODUCT_BUNDLE_IDENTIFIER: com.dvisious.twin.findersync
         INFOPLIST_FILE: Sources/FinderSync/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/FinderSync/FinderSync.entitlements
   TwinLite:
@@ -63,7 +63,7 @@ targets:
       - Sources/TwinLite
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.anderselmen.twin.lite
+        PRODUCT_BUNDLE_IDENTIFIER: com.dvisious.twin.lite
   TwinPro:
     type: framework
     platform: macOS
@@ -72,7 +72,7 @@ targets:
       - Sources/TwinPro
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.anderselmen.twin.pro
+        PRODUCT_BUNDLE_IDENTIFIER: com.dvisious.twin.pro
 schemes:
   Twin:
     build:

@@ -5,7 +5,7 @@ import Foundation
 /// then $12/year. Full purchase/verification flow: @StoreKitEngineer.
 public enum TwinPro {
     public static let editionName = "Pro"
-    public static let productID = "com.anderselmen.twin.pro"
+    public static let productID = "com.dvisious.twin.pro"
     public static let features: Set<ProFeature> = [.workspaces, .folderSync, .batchRename, .gitBadges]
 }
 

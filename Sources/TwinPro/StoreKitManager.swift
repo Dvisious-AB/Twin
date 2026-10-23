@@ -2,7 +2,7 @@ import Foundation
 import StoreKit
 
 /// StoreKit 2 manager for Twin Pro.
-/// Product: `com.anderselmen.twin.pro` (non-consumable, $24.99 / 249 kr,
+/// Product: `com.dvisious.twin.pro` (non-consumable, $24.99 / 249 kr,
 /// launch 149 kr). Test locally with `Configuration.storekit`.
 @MainActor
 public final class StoreKitManager: ObservableObject {

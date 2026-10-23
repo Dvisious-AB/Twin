@@ -9,8 +9,8 @@ i `Sources/TwinApp/Features/DualPane/` om inget annat anges.
 ┌ Twin ────────────────────────────────────────────────────────┐
 │ [F5 Copy] [F6 Move]                                          │
 ├──────────────────────────────┬───────────────────────────────┤
-│ ◀ / ▸ Users ▸ anders  [≣|▦][↻]│ ◀ / ▸ Users ▸ anders ▸ Docs   │
-│ /Users/anders        12 items │ /Users/anders/Documents 8 items│
+│ ◀ / ▸ Users ▸ user  [≣|▦][↻]│ ◀ / ▸ Users ▸ user ▸ Docs   │
+│ /Users/user        12 items │ /Users/user/Documents 8 items│
 │ ▸ 📁 Projects                 │ ▸ 📁 Archive                  │
 │   📄 notes.txt        4 KB   │   📄 report.pdf       91 KB   │
 │ ▸ 📁 Downloads                │ ▸ 📁 Images                   │

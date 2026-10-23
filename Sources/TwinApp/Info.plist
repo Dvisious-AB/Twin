@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.anderselmen.twin</string>
+	<string>com.dvisious.twin</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -22,7 +22,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.anderselmen.twin</string>
+			<string>com.dvisious.twin</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>twin</string>
