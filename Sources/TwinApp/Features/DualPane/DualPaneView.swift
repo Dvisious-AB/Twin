@@ -1,4 +1,5 @@
 import SwiftUI
+import TwinPro
 
 struct DualPaneView: View {
     @StateObject var left = PaneViewModel(initialPath: FileManager.default.homeDirectoryForCurrentUser)
@@ -7,6 +8,8 @@ struct DualPaneView: View {
     )
     @State var selected: Int = 0
     @FocusState private var paneFocus: Int?
+    @State private var showPaywall = false
+    @ObservedObject private var store = StoreKitManager.shared
 
     private func switchPane() {
         selected = selected == 0 ? 1 : 0
@@ -32,6 +35,7 @@ struct DualPaneView: View {
                     .onTapGesture { selected = 1; paneFocus = 1 }
             }
         }
+        .sheet(isPresented: $showPaywall) { PaywallView() }
         .onOpenURL { url in
             // twin://open?path=/some/folder  (from FinderSync "Open in Twin")
             guard url.scheme == "twin",
@@ -55,6 +59,8 @@ struct DualPaneView: View {
                 .keyboardShortcut("5", modifiers: .command)
                 .help("Copy selected to other pane (F5 / Cmd+5)")
 
+                Button(store.isProUnlocked ? "Twin Pro ✓" : "Twin Pro") { showPaywall = true }
+                    .help("Twin Pro — Workspaces, Folder Sync, Batch Rename, Git badges")
                 Button("F6 Move") {
                     Task { await activePane.moveSelected(to: inactivePane.currentURL); inactivePane.refresh() }
                 }

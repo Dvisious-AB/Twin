@@ -28,6 +28,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Sources/TwinApp/Twin.entitlements
     dependencies:
       - target: FinderSyncExtension
+      - target: TwinPro
     info:
       path: Sources/TwinApp/Info.plist
       properties:
