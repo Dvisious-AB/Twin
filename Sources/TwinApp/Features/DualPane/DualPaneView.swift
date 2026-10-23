@@ -29,6 +29,7 @@ struct DualPaneView: View {
     @State private var newName = ""
     @State private var showBatchRename = false
     @State private var showSaveWorkspace = false
+    @State private var showFolderSync = false
     @State private var workspaceName = ""
     @State private var savedWorkspaces: [Workspace] = WorkspaceStore.shared.load()
     @ObservedObject private var store = StoreKitManager.shared
@@ -107,6 +108,10 @@ struct DualPaneView: View {
                 .keyboardShortcut("u", modifiers: [.command, .shift])
                 .disabled(!activePane.selectedIsArchive)
                 .help("Unpack zip (Alt+F6 / Cmd+Shift+U)")
+            Button("Sync") {
+                if store.isProUnlocked { showFolderSync = true } else { showPaywall = true }
+            }
+            .help("Folder Sync to other pane (Pro)")
             Button("Batch Rename") {
                 if store.isProUnlocked { showBatchRename = true } else { showPaywall = true }
             }
@@ -277,6 +282,11 @@ struct DualPaneView: View {
         .sheet(isPresented: $showNewFolder) {
             nameSheet(title: "New Folder", prompt: "Folder name") {
                 activePane.createFolder(named: newName)
+            }
+        }
+        .sheet(isPresented: $showFolderSync) {
+            FolderSyncView(source: activePane.currentURL, destination: inactivePane.currentURL) {
+                inactivePane.refresh()
             }
         }
         .sheet(isPresented: $showBatchRename) {

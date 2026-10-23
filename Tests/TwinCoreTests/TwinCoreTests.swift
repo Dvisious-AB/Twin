@@ -222,6 +222,67 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertEqual(FileActionService.renamedName(for: url, rule: rule, index: 0), "2026-photo_01.jpg")
     }
 
+    func testFolderSyncCompareAndRun() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = base.appendingPathComponent("src")
+        let dest = base.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        try "same".write(to: source.appendingPathComponent("same.txt"), atomically: true, encoding: .utf8)
+        try "same".write(to: dest.appendingPathComponent("same.txt"), atomically: true, encoding: .utf8)
+        try "only-src".write(to: source.appendingPathComponent("new.txt"), atomically: true, encoding: .utf8)
+        try "extra".write(to: dest.appendingPathComponent("extra.txt"), atomically: true, encoding: .utf8)
+        try "longer-content".write(to: source.appendingPathComponent("diff.txt"), atomically: true, encoding: .utf8)
+        try "x".write(to: dest.appendingPathComponent("diff.txt"), atomically: true, encoding: .utf8)
+
+        let plan = FolderSyncService.compare(source: source, destination: dest)
+        let states = Dictionary(uniqueKeysWithValues: plan.map { ($0.relativePath, $0.state) })
+        XCTAssertEqual(states["same.txt"], .same)
+        XCTAssertEqual(states["new.txt"], .onlyInSource)
+        XCTAssertEqual(states["extra.txt"], .onlyInDestination)
+        XCTAssertEqual(states["diff.txt"], .different)
+
+        // Safe sync keeps extras.
+        let result = try FolderSyncService.sync(source: source, destination: dest)
+        XCTAssertEqual(result.copied, 2)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("extra.txt").path))
+        XCTAssertEqual(try String(contentsOf: dest.appendingPathComponent("diff.txt"), encoding: .utf8), "longer-content")
+        let remaining = FolderSyncService.compare(source: source, destination: dest)
+            .filter { $0.state != .same && $0.state != .onlyInDestination }
+        XCTAssertEqual(remaining.count, 0)
+    }
+
+    func testGitBadges() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        func git(_ args: [String]) {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["-C", base.path] + args
+            try? process.run()
+            process.waitUntilExit()
+        }
+        git(["init", "-q"])
+        git(["config", "user.email", "test@example.com"])
+        git(["config", "user.name", "Test"])
+        let tracked = base.appendingPathComponent("tracked.txt")
+        try "v1".write(to: tracked, atomically: true, encoding: .utf8)
+        git(["add", "."])
+        git(["commit", "-qm", "init"])
+
+        try "v2".write(to: tracked, atomically: true, encoding: .utf8)
+        try "new".write(to: base.appendingPathComponent("untracked.txt"), atomically: true, encoding: .utf8)
+
+        let badges = GitStatusService.badges(for: base)
+        XCTAssertEqual(badges[tracked.path], .modified)
+        XCTAssertEqual(badges[base.appendingPathComponent("untracked.txt").path], .untracked)
+        XCTAssertNotNil(GitStatusService.repositoryRoot(for: base))
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -245,6 +245,15 @@ struct PaneView: View {
                 HStack(spacing: 6) {
                     FileItemIcon(item: item)
                     Text(item.name).lineLimit(1)
+                    if let badge = viewModel.gitBadge(for: item) {
+                        Text(badge.rawValue)
+                            .font(.caption2.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(badge == .untracked ? Color.orange : Color.red)
+                            .clipShape(Capsule())
+                    }
                 }
             }
             TableColumn("Size", value: \.size) { item in

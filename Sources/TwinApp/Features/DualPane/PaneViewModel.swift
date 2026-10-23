@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import TwinCore
+import TwinPro
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -54,6 +55,7 @@ final class PaneViewModel: ObservableObject {
     @Published var searchFocusTrigger = 0
     @Published var lastOperationSummary: String?
     @Published var directorySizes: [String: UInt64] = [:]
+    @Published var gitBadges: [String: GitStatusService.Badge] = [:]
     private var backHistory: [URL] = []
     private var forwardHistory: [URL] = []
     var canGoBack: Bool { !backHistory.isEmpty }
@@ -174,6 +176,25 @@ final class PaneViewModel: ObservableObject {
             selection = [first.url]
         }
         computeDirectorySizes()
+        refreshGitBadges()
+    }
+
+    /// Git badges (Pro): computed off the main thread, only when unlocked.
+    private func refreshGitBadges() {
+        guard ProFeatureGate.shared.isUnlocked else { gitBadges = [:]; return }
+        let folder = currentURL
+        Task.detached(priority: .utility) {
+            let badges = GitStatusService.badges(for: folder)
+            await MainActor.run { [weak self] in
+                if self?.currentURL == folder { self?.gitBadges = badges }
+            }
+        }
+    }
+
+    func gitBadge(for item: FileItem) -> GitStatusService.Badge? {
+        guard ProFeatureGate.shared.isUnlocked else { return nil }
+        let badge = gitBadges[item.url.resolvingSymlinksInPath().path]
+        return badge?.isDirty == true ? badge : nil
     }
 
     /// Background directory sizes (cached in DirectorySizeService).
