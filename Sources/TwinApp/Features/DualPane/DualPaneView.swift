@@ -162,7 +162,8 @@ struct DualPaneView: View {
             PaneView(
                 viewModel: tabs.active, isActive: selected == side,
                 onRequestPaneSwitch: { switchPane() },
-                onChooseFolder: { chooseFolder(for: tabs.active) }
+                onChooseFolder: { chooseFolder(for: tabs.active) },
+                onActivate: { selected = side; paneFocus = side }
             )
             .id(ObjectIdentifier(tabs.active))
             .frame(maxWidth: .infinity, maxHeight: .infinity)

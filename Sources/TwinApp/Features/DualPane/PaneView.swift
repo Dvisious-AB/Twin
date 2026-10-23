@@ -7,6 +7,10 @@ struct PaneView: View {
     var isActive: Bool
     var onRequestPaneSwitch: () -> Void = {}
     var onChooseFolder: () -> Void = {}
+    /// Fired when the user interacts with this pane's selection, so the
+    /// clicked/keyboard-used pane becomes the active one. The container
+    /// tap gesture in DualPaneView is not enough: Table consumes row taps.
+    var onActivate: () -> Void = {}
     @FocusState private var listFocused: Bool
 
     private let iconColumns = [
@@ -37,6 +41,7 @@ struct PaneView: View {
         .focused($listFocused)
         .onAppear { if isActive { listFocused = true } }
         .onChange(of: isActive) { _, active in if active { listFocused = true } }
+        .onChange(of: viewModel.selection) { _, _ in onActivate() }
         .onKeyPress(.return) {
             guard !viewModel.selection.isEmpty else { return .ignored }
             viewModel.openFirstSelected()
