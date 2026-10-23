@@ -1,4 +1,5 @@
 import SwiftUI
+import TwinCore
 
 /// Minimal built-in text editor (F4 in Total Commander, Cmd+E in Twin).
 /// Loads the file as text, Cmd+S / Save writes it back to the same path.
@@ -39,15 +40,15 @@ struct TextEditorView: View {
 
     private func load() {
         do {
-            text = try String(contentsOf: url, encoding: .utf8)
+            text = try TextFileService.loadText(at: url)
         } catch {
-            loadError = "Not a UTF-8 text file, or it can't be read."
+            loadError = error.localizedDescription
         }
     }
 
     private func save() {
         do {
-            try text.write(to: url, atomically: true, encoding: .utf8)
+            try TextFileService.saveText(text, at: url)
             onSave()
             dismiss()
         } catch {

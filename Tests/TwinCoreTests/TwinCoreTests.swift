@@ -179,6 +179,27 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: dest.appendingPathComponent("a.txt"), encoding: .utf8), "old")
     }
 
+    func testTextFileServiceAndStreamedCopy() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let file = base.appendingPathComponent("note.txt")
+        try TextFileService.saveText("hej Twin", at: file)
+        XCTAssertEqual(try TextFileService.loadText(at: file), "hej Twin")
+
+        let binary = base.appendingPathComponent("bin.dat")
+        try Data([0xFF, 0xFE, 0x00, 0x01]).write(to: binary)
+        XCTAssertThrowsError(try TextFileService.loadText(at: binary))
+
+        // Streamed copy preserves bytes, including across the chunk boundary.
+        let big = base.appendingPathComponent("big.txt")
+        try String(repeating: "abcd", count: 300_000).write(to: big, atomically: true, encoding: .utf8)
+        let copy = base.appendingPathComponent("big-copy.txt")
+        try StreamedFileCopy.copy(from: big, to: copy)
+        XCTAssertEqual(try Data(contentsOf: copy), try Data(contentsOf: big))
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

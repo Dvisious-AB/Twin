@@ -321,7 +321,7 @@ struct PaneView: View {
     private var freeSpaceText: String? {
         let values = try? viewModel.currentURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         guard let capacity = values?.volumeAvailableCapacityForImportantUsage else { return nil }
-        return ByteCountFormatter.string(fromByteCount: capacity, countStyle: .file) + " free"
+        return SizeFormatting.string(forBytes: capacity) + " free"
     }
 
     // MARK: - Progress

@@ -1,5 +1,29 @@
 import Foundation
 
+/// Chunked copy that never loads a whole file into memory — safe for
+/// multi-GB files. Shared by drag promises and any streamed copy need.
+public enum StreamedFileCopy {
+    public static let chunkSize = 1 << 20 // 1 MiB
+
+    public static func copy(from source: URL, to destination: URL) throws {
+        let values = try source.resourceValues(forKeys: [.isDirectoryKey])
+        if values.isDirectory == true {
+            try FileManager.default.copyItem(at: source, to: destination)
+            return
+        }
+        FileManager.default.createFile(atPath: destination.path, contents: nil)
+        let reader = try FileHandle(forReadingFrom: source)
+        defer { try? reader.close() }
+        let writer = try FileHandle(forWritingTo: destination)
+        defer { try? writer.close() }
+        while true {
+            let chunk = try reader.read(upToCount: chunkSize) ?? Data()
+            if chunk.isEmpty { break }
+            try writer.write(contentsOf: chunk)
+        }
+    }
+}
+
 /// Coordinated file-system operations built on `NSFileCoordinator`.
 ///
 /// Coordination matters on iCloud Drive and external volumes: another

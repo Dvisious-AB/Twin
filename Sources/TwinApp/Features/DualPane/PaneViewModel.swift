@@ -193,10 +193,10 @@ final class PaneViewModel: ObservableObject {
 
     func directorySizeText(for item: FileItem) -> String {
         guard item.isDirectory else {
-            return ByteCountFormatter.string(fromByteCount: Int64(item.size), countStyle: .file)
+            return SizeFormatting.string(forBytes: item.size)
         }
         if let size = directorySizes[item.url.path] {
-            return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+            return SizeFormatting.string(forBytes: size)
         }
         return computingSizes.contains(item.url.path) ? "…" : "--"
     }
