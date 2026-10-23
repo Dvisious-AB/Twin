@@ -43,6 +43,11 @@ final class PaneViewModel: ObservableObject {
     @Published var viewMode: PaneViewMode = .list
     @Published var navigationPath = NavigationPath()
     @Published var quickLookURL: URL?
+    @Published var searchText: String = ""
+
+    var filteredItems: [FileItem] {
+        PaneSearch.filter(items, query: searchText)
+    }
 
     // Drag-drop / file-operation progress
     @Published var isDropTargeted = false

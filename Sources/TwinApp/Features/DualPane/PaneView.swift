@@ -70,10 +70,12 @@ struct PaneView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer()
-                Text("\(viewModel.items.count) items")
+                Text("\(viewModel.filteredItems.count) items")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+
+            PaneSearchField(text: $viewModel.searchText)
         }
         .padding(6)
         .background(isActive ? Color.accentColor.opacity(0.1) : Color.clear)
@@ -126,7 +128,7 @@ struct PaneView: View {
     }
 
     private var listView: some View {
-        List(viewModel.items, id: \.url, selection: $viewModel.selection) { item in
+        List(viewModel.filteredItems, id: \.url, selection: $viewModel.selection) { item in
             HStack {
                 Image(systemName: item.isDirectory ? "folder.fill" : "doc")
                     .foregroundStyle(item.isDirectory ? .blue : .secondary)
@@ -149,7 +151,7 @@ struct PaneView: View {
     private var iconView: some View {
         ScrollView {
             LazyVGrid(columns: iconColumns, spacing: 14) {
-                ForEach(viewModel.items, id: \.url) { item in
+                ForEach(viewModel.filteredItems, id: \.url) { item in
                     VStack(spacing: 6) {
                         Image(systemName: item.isDirectory ? "folder.fill" : "doc")
                             .font(.system(size: 32))
