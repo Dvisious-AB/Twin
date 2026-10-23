@@ -21,6 +21,7 @@ targets:
     sources:
       - Sources/TwinApp
       - Sources/TwinCore
+      - Sources/TwinPro
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: se.dvisious.twin
@@ -28,7 +29,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Sources/TwinApp/Twin.entitlements
     dependencies:
       - target: FinderSyncExtension
-      - target: TwinPro
     info:
       path: Sources/TwinApp/Info.plist
       properties:

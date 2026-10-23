@@ -1,5 +1,4 @@
 import SwiftUI
-import TwinPro
 
 struct DualPaneView: View {
     @StateObject var left = PaneViewModel(initialPath: FileManager.default.homeDirectoryForCurrentUser)
