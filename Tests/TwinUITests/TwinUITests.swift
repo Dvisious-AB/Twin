@@ -41,9 +41,12 @@ final class TwinUITests: XCTestCase {
     }
 
     // Keyboard-first: click a row, Enter opens it, Delete (backspace) goes up.
+    // Starts from the filesystem root (Cmd+Option+R) so the listing is
+    // never empty, regardless of the test machine's home folder.
     func testEnterOpensAndDeleteGoesUp() {
         let outline = app.outlines.firstMatch
         XCTAssertTrue(outline.waitForExistence(timeout: 5))
+        app.typeKey("r", modifierFlags: [.command, .option])
         let firstRow = outline.cells.element(boundBy: 0)
         guard firstRow.waitForExistence(timeout: 5) else {
             XCTFail("No rows in the first pane (empty start folder?)")
