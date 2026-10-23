@@ -159,13 +159,10 @@ final class PaneViewModel: ObservableObject {
             await Task.yield()
             let target = dest.appendingPathComponent(url.lastPathComponent)
             do {
-                if FileManager.default.fileExists(atPath: target.path) {
-                    try FileManager.default.removeItem(at: target)
-                }
                 if move {
-                    try FileManager.default.moveItem(at: url, to: target)
+                    try TwinCore.fileCoordinator.moveItem(at: url, to: target)
                 } else {
-                    try FileManager.default.copyItem(at: url, to: target)
+                    try TwinCore.fileCoordinator.copyItem(at: url, to: target)
                 }
             } catch {
                 // Keep going for remaining items; progress still advances.

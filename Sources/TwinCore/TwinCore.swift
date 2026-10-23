@@ -7,6 +7,7 @@ import Foundation
 public enum TwinCore {
 
     public static var bookmarkStore: BookmarkStore { .shared }
+    public static var fileCoordinator: FileCoordinatorService { .shared }
 
     // MARK: - Bookmarks (persisted)
 
