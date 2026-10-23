@@ -34,6 +34,7 @@ struct PaneView: View {
             }
         }
         .focusable()
+        .focused($listFocused)
         .onAppear { if isActive { listFocused = true } }
         .onChange(of: isActive) { _, active in if active { listFocused = true } }
         .onKeyPress(.return) {
@@ -41,10 +42,23 @@ struct PaneView: View {
             viewModel.openFirstSelected()
             return .handled
         }
-        .onKeyPress(.delete) {
-            // Mac's Delete key is Backspace: up one level (TC: Backspace / Ctrl+PageUp).
-            // Deleting files is Cmd+Delete (TC: F8/Del) in the function bar.
+        .onKeyPress(phases: .down) { press in
+            // Mac's Delete key (backspace, U+007F) = up one level, as in TC.
+            // The Table swallows the .delete key equivalent, so match the
+            // character directly. Deleting files is Cmd+Delete in the bar.
+            guard press.key == .delete || press.characters.contains("\u{7F}") else { return .ignored }
+            guard press.modifiers.isEmpty else { return .ignored }
             viewModel.goUp()
+            return .handled
+        }
+        .onKeyPress(.pageUp, phases: .down) { press in
+            guard press.modifiers.contains(.control) else { return .ignored }
+            viewModel.goUp()
+            return .handled
+        }
+        .onKeyPress(.pageDown, phases: .down) { press in
+            guard press.modifiers.contains(.control) else { return .ignored }
+            viewModel.openFirstSelected()
             return .handled
         }
         .onKeyPress(.leftArrow, phases: .down) { press in
@@ -255,7 +269,6 @@ struct PaneView: View {
             }
             .width(min: 130, ideal: 150)
         }
-        .focused($listFocused)
         .onTapGesture(count: 2) { viewModel.openFirstSelected() }
         .contextMenu(forSelectionType: URL.self) { _ in
             Button("Open") { viewModel.openFirstSelected() }
