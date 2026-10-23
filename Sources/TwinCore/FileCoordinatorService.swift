@@ -5,7 +5,12 @@ import Foundation
 public enum StreamedFileCopy {
     public static let chunkSize = 1 << 20 // 1 MiB
 
-    public static func copy(from source: URL, to destination: URL) throws {
+    public static func copy(
+        from source: URL,
+        to destination: URL,
+        onProgress: (@Sendable (UInt64) -> Void)? = nil,
+        isCancelled: @Sendable () -> Bool = { false }
+    ) throws {
         if FileManager.default.fileExists(atPath: destination.path) {
             try FileManager.default.removeItem(at: destination)
         }
@@ -19,10 +24,18 @@ public enum StreamedFileCopy {
         defer { try? reader.close() }
         let writer = try FileHandle(forWritingTo: destination)
         defer { try? writer.close() }
+        var copied: UInt64 = 0
         while true {
+            if isCancelled() {
+                try? writer.close()
+                try? FileManager.default.removeItem(at: destination)
+                throw CancellationError()
+            }
             let chunk = try reader.read(upToCount: chunkSize) ?? Data()
             if chunk.isEmpty { break }
             try writer.write(contentsOf: chunk)
+            copied += UInt64(chunk.count)
+            onProgress?(copied)
         }
     }
 }
@@ -111,7 +124,7 @@ public final class FileCoordinatorService: @unchecked Sendable {
     /// Events from a batch copy/move. UI consumes this instead of
     /// reimplementing the loop — one implementation, shared everywhere.
     public enum BatchEvent: Sendable {
-        case progress(Double)
+        case progress(fraction: Double, bytesDone: UInt64, bytesTotal: UInt64, currentItem: String)
         case finished(done: Int, skipped: Int)
     }
 
@@ -131,7 +144,17 @@ public final class FileCoordinatorService: @unchecked Sendable {
                         continuation.finish()
                         return
                     }
-                    let total = Double(urls.count)
+                    // Byte totals up front so progress means something
+                    // for a single multi-GB file, not just per item.
+                    let itemBytes: [UInt64] = urls.map { url in
+                        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+                        if values?.isDirectory == true {
+                            return DirectorySizeService.computeSize(of: url)
+                        }
+                        return UInt64(values?.fileSize ?? 0)
+                    }
+                    let bytesTotal = itemBytes.reduce(0, +)
+                    var bytesDone: UInt64 = 0
                     var done = 0
                     var skipped = 0
                     for (index, url) in urls.enumerated() {
@@ -139,14 +162,30 @@ public final class FileCoordinatorService: @unchecked Sendable {
                         let destination = directory.appendingPathComponent(url.lastPathComponent)
                         if FileManager.default.fileExists(atPath: destination.path) {
                             skipped += 1
+                            bytesDone += itemBytes[index]
                         } else if move {
                             try self.moveItem(at: url, to: destination)
                             done += 1
+                            bytesDone += itemBytes[index]
                         } else {
-                            try self.copyItem(at: url, to: destination)
+                            let base = bytesDone
+                            try StreamedFileCopy.copy(from: url, to: destination, onProgress: { written in
+                                continuation.yield(.progress(
+                                    fraction: bytesTotal > 0 ? Double(base + written) / Double(bytesTotal) : 0,
+                                    bytesDone: base + written,
+                                    bytesTotal: bytesTotal,
+                                    currentItem: url.lastPathComponent
+                                ))
+                            }, isCancelled: { Task.isCancelled })
                             done += 1
+                            bytesDone += itemBytes[index]
                         }
-                        continuation.yield(.progress(Double(index + 1) / total))
+                        continuation.yield(.progress(
+                            fraction: bytesTotal > 0 ? Double(bytesDone) / Double(bytesTotal) : Double(index + 1) / Double(urls.count),
+                            bytesDone: bytesDone,
+                            bytesTotal: bytesTotal,
+                            currentItem: url.lastPathComponent
+                        ))
                     }
                     continuation.yield(.finished(done: done, skipped: skipped))
                     continuation.finish()

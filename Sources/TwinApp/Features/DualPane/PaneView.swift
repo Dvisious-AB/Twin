@@ -249,7 +249,9 @@ struct PaneView: View {
             TableColumn("Name", value: \.name) { item in
                 HStack(spacing: 6) {
                     FileItemIcon(item: item)
-                    Text(item.name).lineLimit(1)
+                    Text(item.name)
+                        .lineLimit(1)
+                        .fontWeight(viewModel.selection.contains(item.url) ? .bold : .regular)
                     if let badge = viewModel.gitBadge(for: item) {
                         Text(badge.rawValue)
                             .font(.caption2.bold())
@@ -300,16 +302,29 @@ struct PaneView: View {
                     .frame(width: 84, height: 84)
                     .background(
                         viewModel.selection.contains(item.url)
-                            ? Color.accentColor.opacity(0.2)
+                            ? Color.accentColor.opacity(isActive ? 0.35 : 0.15)
                             : Color.clear
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                viewModel.selection.contains(item.url) ? Color.accentColor : Color.clear,
+                                lineWidth: 1.5
+                            )
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        if viewModel.selection.contains(item.url) {
-                            viewModel.selection.remove(item.url)
+                        // Finder/TC semantics: plain click replaces the
+                        // selection, Cmd-click toggles (UX review P1-8).
+                        if NSApplication.shared.currentEvent?.modifierFlags.contains(.command) == true {
+                            if viewModel.selection.contains(item.url) {
+                                viewModel.selection.remove(item.url)
+                            } else {
+                                viewModel.selection.insert(item.url)
+                            }
                         } else {
-                            viewModel.selection.insert(item.url)
+                            viewModel.selection = [item.url]
                         }
                     }
                     .onTapGesture(count: 2) { viewModel.open(item) }
@@ -322,7 +337,11 @@ struct PaneView: View {
 
     private var statusBar: some View {
         HStack(spacing: 8) {
-            Text("\(viewModel.filteredItems.count) items")
+            if viewModel.searchText.isEmpty {
+                Text("\(viewModel.filteredItems.count) items")
+            } else {
+                Text("\(viewModel.filteredItems.count) of \(viewModel.items.count) items · filter: \"\(viewModel.searchText)\"")
+            }
             if !viewModel.selection.isEmpty {
                 Text("· \(viewModel.selection.count) selected")
             }
@@ -367,6 +386,8 @@ struct PaneView: View {
                     Text("\(Int(viewModel.operationProgress * 100))%")
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
+                    Button("Cancel") { viewModel.cancelOperation() }
+                        .controlSize(.small)
                 }
             }
             ProgressView(value: viewModel.operationProgress, total: 1.0)

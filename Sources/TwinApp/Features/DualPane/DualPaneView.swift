@@ -54,8 +54,10 @@ struct DualPaneView: View {
 
     /// Total Commander-style function bar: the pane operations live here,
     /// always visible, instead of only in the top toolbar.
+    /// Primary actions stay visible at any window width; everything
+    /// else lives in the explicit "More" menu (UX review 2026-10-23:
+    /// a silently scrolling bar hid Delete/Sync from TC users).
     private var functionBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 8) {
             Text(activePane.currentURL.lastPathComponent)
                 .font(.caption.bold())
@@ -68,14 +70,10 @@ struct DualPaneView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer()
-            Button("F5 Copy") {
-                Task { await activePane.copySelected(to: inactivePane.currentURL); inactivePane.refresh() }
-            }
+            Button("F5 Copy") { activePane.startCopy(to: inactivePane.currentURL) }
             .keyboardShortcut("5", modifiers: .command)
             .disabled(activePane.selection.isEmpty)
-            Button("F6 Move") {
-                Task { await activePane.moveSelected(to: inactivePane.currentURL); inactivePane.refresh() }
-            }
+            Button("F6 Move") { activePane.startMove(to: inactivePane.currentURL) }
             .keyboardShortcut("6", modifiers: .command)
             .disabled(activePane.selection.isEmpty)
             Divider().frame(height: 16)
@@ -87,14 +85,6 @@ struct DualPaneView: View {
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(activePane.selection.isEmpty)
                 .help("Compress to .zip (Alt+F5 / Cmd+Shift+C)")
-            Button("MD5") { activePane.createMD5ForSelected() }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
-                .disabled(activePane.selection.isEmpty)
-                .help("Create .md5 checksum file (Cmd+Shift+M)")
-            Button("Encrypt") { showEncryptPrompt = true }
-                .keyboardShortcut("e", modifiers: [.command, .shift])
-                .disabled(activePane.selection.isEmpty)
-                .help("Encrypt/decrypt with passphrase (Cmd+Shift+E)")
             Button("New Folder") { newName = "New Folder"; showNewFolder = true }
                 .keyboardShortcut("7", modifiers: .command)
                 .help("New folder (F7 / Cmd+7)")
@@ -105,51 +95,49 @@ struct DualPaneView: View {
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(activePane.selection.count != 1)
             .help("Rename selected (Shift+F6 / Cmd+Shift+R)")
-            Button("Unpack") { activePane.unpackSelected() }
-                .keyboardShortcut("u", modifiers: [.command, .shift])
-                .disabled(!activePane.selectedIsArchive)
-                .help("Unpack zip (Alt+F6 / Cmd+Shift+U)")
-            Button("Sync") {
-                if store.isProUnlocked { showFolderSync = true } else { showPaywall = true }
-            }
-            .help("Folder Sync to other pane (Pro)")
-            Button("Batch Rename") {
-                if store.isProUnlocked { showBatchRename = true } else { showPaywall = true }
-            }
-            .disabled(activePane.selection.isEmpty)
-            .help("Batch rename selected (Pro)")
-            Menu("Workspaces") {
-                Button("Save Current…") {
-                    if store.isProUnlocked { workspaceName = ""; showSaveWorkspace = true } else { showPaywall = true }
-                }
-                if !savedWorkspaces.isEmpty { Divider() }
-                ForEach(savedWorkspaces) { workspace in
-                    Button(workspace.name) { applyWorkspace(workspace) }
-                }
-                if !savedWorkspaces.isEmpty {
-                    Divider()
-                    ForEach(savedWorkspaces) { workspace in
-                        Button("Delete \(workspace.name)", role: .destructive) {
-                            WorkspaceStore.shared.delete(id: workspace.id)
-                            savedWorkspaces = WorkspaceStore.shared.load()
-                        }
-                    }
-                }
-            }
-            .help("Saved workspaces (Pro)")
-            Button("Permissions") { showPermissions = true }
-                .keyboardShortcut("i", modifiers: .command)
-                .disabled(activePane.selection.count != 1)
-                .help("Permissions for selected item (Cmd+I)")
-            Button { showAssistant = true } label: {
-                Label("Assistant", systemImage: "sparkles")
-            }
-            .help("Organize and help (on-device)")
             Button("Delete") { showDeleteConfirm = true }
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(activePane.selection.isEmpty)
                 .help("Move to Trash (F8 / Cmd+Delete)")
-        }
+            Menu("More") {
+                Button("MD5") { activePane.createMD5ForSelected() }
+                    .disabled(activePane.selection.isEmpty)
+                Button("Encrypt / Decrypt…") { showEncryptPrompt = true }
+                    .disabled(activePane.selection.isEmpty)
+                Button("Unpack") { activePane.unpackSelected() }
+                    .disabled(!activePane.selectedIsArchive)
+                Divider()
+                Button("Folder Sync… (Pro)") {
+                    if store.isProUnlocked { showFolderSync = true } else { showPaywall = true }
+                }
+                Button("Batch Rename… (Pro)") {
+                    if store.isProUnlocked { showBatchRename = true } else { showPaywall = true }
+                }
+                .disabled(activePane.selection.isEmpty)
+                Menu("Workspaces (Pro)") {
+                    Button("Save Current…") {
+                        if store.isProUnlocked { workspaceName = ""; showSaveWorkspace = true } else { showPaywall = true }
+                    }
+                    if !savedWorkspaces.isEmpty { Divider() }
+                    ForEach(savedWorkspaces) { workspace in
+                        Button(workspace.name) { applyWorkspace(workspace) }
+                    }
+                    if !savedWorkspaces.isEmpty {
+                        Divider()
+                        ForEach(savedWorkspaces) { workspace in
+                            Button("Delete \(workspace.name)", role: .destructive) {
+                                WorkspaceStore.shared.delete(id: workspace.id)
+                                savedWorkspaces = WorkspaceStore.shared.load()
+                            }
+                        }
+                    }
+                }
+                Divider()
+                Button("Permissions…") { showPermissions = true }
+                    .disabled(activePane.selection.count != 1)
+                Button("Assistant…") { showAssistant = true }
+            }
+            .help("More actions")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -261,6 +249,33 @@ struct DualPaneView: View {
     private var activePane: PaneViewModel { selected == 0 ? left : right }
     private var inactivePane: PaneViewModel { selected == 0 ? right : left }
 
+    /// Real Total Commander function keys (F4/F5/F6/F7/F8). SwiftUI has
+    /// no F-key equivalents, so an AppKit key monitor handles them —
+    /// the button labels promised F5/F6 (UX review 2026-10-23, P0-3).
+    /// Returns true when the key was consumed.
+    private func handleFunctionKey(_ keyCode: UInt16) -> Bool {
+        switch keyCode {
+        case 118: // F4
+            guard !activePane.selection.isEmpty else { return false }
+            activePane.editSelected()
+        case 96: // F5
+            guard !activePane.selection.isEmpty else { return false }
+            activePane.startCopy(to: inactivePane.currentURL)
+        case 97: // F6
+            guard !activePane.selection.isEmpty else { return false }
+            activePane.startMove(to: inactivePane.currentURL)
+        case 98: // F7
+            newName = "New Folder"
+            showNewFolder = true
+        case 100: // F8
+            guard !activePane.selection.isEmpty else { return false }
+            showDeleteConfirm = true
+        default:
+            return false
+        }
+        return true
+    }
+
     var body: some View {
         VStack(spacing: 0) {
         // NOTE: NavigationStack inside HSplitView collapsed the layout to a
@@ -273,6 +288,7 @@ struct DualPaneView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
             functionBar
         }
+        .background(FunctionKeyHandler { handleFunctionKey($0) })
         .sheet(isPresented: $showPaywall) { PaywallView() }
         .sheet(isPresented: $showPermissions) {
             if let url = activePane.selection.first {
@@ -392,6 +408,45 @@ struct DualPaneView: View {
                 .keyboardShortcut("6", modifiers: .command)
                 .help("Move selected to other pane (F6 / Cmd+6)")
             }
+        }
+    }
+}
+
+/// AppKit bridge for the function keys SwiftUI cannot express.
+/// Installs a local key-down monitor for F4–F8 (no command/control/
+/// option modifiers) and never steals keys from text editing, so the
+/// filter field and sheet text fields keep their keys.
+private struct FunctionKeyHandler: NSViewRepresentable {
+    let onFunctionKey: (UInt16) -> Bool
+
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.install(onFunctionKey: onFunctionKey)
+        return NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onFunctionKey = onFunctionKey
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var onFunctionKey: ((UInt16) -> Bool)?
+        private var monitor: Any?
+
+        func install(onFunctionKey: @escaping (UInt16) -> Bool) {
+            self.onFunctionKey = onFunctionKey
+            let functionKeyCodes: Set<UInt16> = [118, 96, 97, 98, 100] // F4 F5 F6 F7 F8
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, functionKeyCodes.contains(event.keyCode) else { return event }
+                guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
+                if NSApp.keyWindow?.firstResponder is NSText { return event }
+                return self.onFunctionKey?(event.keyCode) == true ? nil : event
+            }
+        }
+
+        deinit {
+            if let monitor { NSEvent.removeMonitor(monitor) }
         }
     }
 }

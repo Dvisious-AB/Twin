@@ -354,29 +354,60 @@ final class PaneViewModel: ObservableObject {
         await performFileOperation(urls: Array(selection), to: dest, move: true)
     }
 
+    /// Cancellable entry points used by the function bar / F5 / F6.
+    private var operationTask: Task<Void, Never>?
+
+    func startCopy(to dest: URL) {
+        let urls = Array(selection)
+        operationTask = Task { await self.performFileOperation(urls: urls, to: dest, move: false) }
+    }
+
+    func startMove(to dest: URL) {
+        let urls = Array(selection)
+        operationTask = Task { await self.performFileOperation(urls: urls, to: dest, move: true) }
+    }
+
+    func cancelOperation() {
+        operationTask?.cancel()
+    }
+
     /// Copies/moves into `dest` via TwinCore's shared batch service,
     /// publishing its progress events. No file-loop lives in the UI layer.
     func performFileOperation(urls: [URL], to dest: URL, move: Bool) async {
         guard !urls.isEmpty, !isPerformingOperation else { return }
         isPerformingOperation = true
         operationProgress = 0
-        operationLabel = move ? "Moving \(urls.count) item(s)…" : "Copying \(urls.count) item(s)…"
+        let verb = move ? "Moving" : "Copying"
+        operationLabel = urls.count == 1
+            ? "\(verb) \(urls[0].lastPathComponent)…"
+            : "\(verb) \(urls.count) files…"
         defer {
             isPerformingOperation = false
             operationLabel = nil
             operationProgress = 0
         }
+        let startedAt = Date()
         do {
             for try await event in TwinCore.fileCoordinator.batchCopyMove(urls: urls, to: dest, move: move) {
                 switch event {
-                case .progress(let value):
-                    operationProgress = value
+                case .progress(let fraction, let bytesDone, let bytesTotal, let currentItem):
+                    operationProgress = fraction
+                    if bytesTotal > 0 {
+                        let elapsed = max(Date().timeIntervalSince(startedAt), 0.1)
+                        let speed = Double(bytesDone) / elapsed
+                        operationLabel = "\(verb) \(currentItem) — "
+                            + "\(SizeFormatting.string(forBytes: Int64(bytesDone))) of "
+                            + "\(SizeFormatting.string(forBytes: Int64(bytesTotal))) · "
+                            + "\(SizeFormatting.string(forBytes: Int64(speed)))/s"
+                    }
                 case .finished(let done, let skipped):
                     lastOperationSummary = skipped > 0
                         ? "\(move ? "Moved" : "Copied") \(done), skipped \(skipped) existing"
                         : nil
                 }
             }
+        } catch is CancellationError {
+            lastOperationSummary = "Operation cancelled"
         } catch {
             lastOperationSummary = error.localizedDescription
         }

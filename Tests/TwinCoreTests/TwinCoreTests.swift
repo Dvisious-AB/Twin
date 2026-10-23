@@ -98,6 +98,50 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
     }
 
+    func testBatchCopyReportsByteProgress() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = base.appendingPathComponent("src")
+        let dest = base.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let file = source.appendingPathComponent("big.bin")
+        try Data(count: 3 * 1024 * 1024).write(to: file)
+
+        var lastFraction = -1.0
+        var finished: (Int, Int)?
+        for try await event in TwinCore.fileCoordinator.batchCopyMove(urls: [file], to: dest, move: false) {
+            switch event {
+            case .progress(let fraction, let bytesDone, let bytesTotal, let name):
+                XCTAssertEqual(name, "big.bin")
+                XCTAssertEqual(bytesTotal, 3 * 1024 * 1024)
+                XCTAssertLessThanOrEqual(bytesDone, bytesTotal)
+                lastFraction = fraction
+            case .finished(let done, let skipped):
+                finished = (done, skipped)
+            }
+        }
+        XCTAssertEqual(lastFraction, 1.0)
+        XCTAssertEqual(finished?.0, 1)
+        XCTAssertEqual(finished?.1, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("big.bin").path))
+    }
+
+    func testStreamedCopyCancellationRemovesPartialFile() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let source = base.appendingPathComponent("src.bin")
+        try Data(count: 5 * 1024 * 1024).write(to: source)
+        let dest = base.appendingPathComponent("dst.bin")
+        XCTAssertThrowsError(
+            try StreamedFileCopy.copy(from: source, to: dest, isCancelled: { true })
+        ) { error in
+            XCTAssertTrue(error is CancellationError)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dest.path))
+    }
+
     func testDirectorySizeSkipsHiddenFiles() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)

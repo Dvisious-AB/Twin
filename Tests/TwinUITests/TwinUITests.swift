@@ -59,9 +59,12 @@ final class TwinUITests: XCTestCase {
         XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 5))
     }
 
-    // The assistant opens from the function bar and answers from built-in help.
+    // The assistant opens from the function bar's More menu and answers from built-in help.
     func testAssistantAnswersEncryptionQuestion() {
-        let assistant = app.buttons["Assistant"]
+        let more = app.menuButtons["More"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5))
+        more.click()
+        let assistant = app.menuItems["Assistant…"]
         XCTAssertTrue(assistant.waitForExistence(timeout: 5))
         assistant.click()
         let field = app.textFields.firstMatch
