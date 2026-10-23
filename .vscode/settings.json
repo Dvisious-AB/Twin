@@ -1,0 +1,12 @@
+{
+  "editor.formatOnSave": false,
+  "files.exclude": {
+    "**/Twin.xcodeproj": true,
+    "**/DerivedData": true,
+    "**/.build": true
+  },
+  "search.exclude": {
+    "**/Twin.xcodeproj": true,
+    "**/.build": true
+  }
+}

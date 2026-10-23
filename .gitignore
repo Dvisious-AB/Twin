@@ -5,5 +5,3 @@ DerivedData/
 .swiftpm/
 .DS_Store
 build/
-.zed/
-.vscode/

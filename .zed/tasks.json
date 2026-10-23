@@ -1,0 +1,23 @@
+[
+  {
+    "label": "Twin: Generate (XcodeGen)",
+    "command": "./Scripts/generate.sh",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
+    "label": "Twin: Build",
+    "command": "./Scripts/build.sh",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
+    "label": "Twin: SwiftPM Build (TwinCore)",
+    "command": "swift build",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  }
+]

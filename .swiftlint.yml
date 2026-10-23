@@ -1,0 +1,13 @@
+only_rules:
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - line_length
+  - unused_import
+line_length:
+  warning: 140
+  error: 200
+excluded:
+  - Twin.xcodeproj
+  - .build
+  - DerivedData

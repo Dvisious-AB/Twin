@@ -51,12 +51,32 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.anderselmen.twin.findersync
         INFOPLIST_FILE: Sources/FinderSync/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/FinderSync/FinderSync.entitlements
+  TwinLite:
+    type: framework
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Sources/TwinLite
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.anderselmen.twin.lite
+  TwinPro:
+    type: framework
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Sources/TwinPro
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.anderselmen.twin.pro
 schemes:
   Twin:
     build:
       targets:
         TwinApp: all
         FinderSyncExtension: all
+        TwinLite: all
+        TwinPro: all
     run:
       config: Debug
       executable: TwinApp
