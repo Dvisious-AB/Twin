@@ -7,6 +7,7 @@ struct PaneView: View {
     var isActive: Bool
     var onRequestPaneSwitch: () -> Void = {}
     var onChooseFolder: () -> Void = {}
+    @FocusState private var listFocused: Bool
 
     private let iconColumns = [
         GridItem(.adaptive(minimum: 76, maximum: 110), spacing: 12)
@@ -33,6 +34,18 @@ struct PaneView: View {
             }
         }
         .focusable()
+        .onAppear { if isActive { listFocused = true } }
+        .onChange(of: isActive) { _, active in if active { listFocused = true } }
+        .onKeyPress(.return) {
+            guard !viewModel.selection.isEmpty else { return .ignored }
+            viewModel.openFirstSelected()
+            return .handled
+        }
+        .onKeyPress(.delete) {
+            // Backspace = up one level (Total Commander / Norton convention).
+            viewModel.goUp()
+            return .handled
+        }
         .onKeyPress(.tab) {
             // Tab switches pane — unless the user is typing in the filter field.
             guard !viewModel.isSearchEditing else { return .ignored }
@@ -44,6 +57,14 @@ struct PaneView: View {
             return viewModel.quickLookURL != nil ? .handled : .ignored
         }
         .quickLookPreview($viewModel.quickLookURL)
+        .sheet(isPresented: Binding(
+            get: { viewModel.editingURL != nil },
+            set: { if !$0 { viewModel.editingURL = nil } }
+        )) {
+            if let url = viewModel.editingURL {
+                TextEditorView(url: url) { viewModel.refresh() }
+            }
+        }
         .onDrop(of: [UTType.fileURL], isTargeted: $viewModel.isDropTargeted) { providers in
             Task { @MainActor in
                 _ = await viewModel.handleDrop(providers: providers)
@@ -195,7 +216,7 @@ struct PaneView: View {
                 }
             }
             TableColumn("Size", value: \.size) { item in
-                Text(item.isDirectory ? "--" : ByteCountFormatter.string(fromByteCount: Int64(item.size), countStyle: .file))
+                Text(viewModel.directorySizeText(for: item))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
@@ -207,6 +228,7 @@ struct PaneView: View {
             }
             .width(min: 130, ideal: 150)
         }
+        .focused($listFocused)
         .onTapGesture(count: 2) { viewModel.openFirstSelected() }
         .contextMenu(forSelectionType: URL.self) { _ in
             Button("Open") { viewModel.openFirstSelected() }

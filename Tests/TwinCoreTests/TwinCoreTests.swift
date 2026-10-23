@@ -46,6 +46,58 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertFalse(store.hasBookmark(for: dir))
     }
 
+    // FileActionService: MD5 of "abc" is the well-known RFC 1321 value.
+    func testMD5AndChecksumFile() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let file = base.appendingPathComponent("abc.txt")
+        try Data("abc".utf8).write(to: file)
+
+        XCTAssertEqual(try FileActionService.md5Hex(of: file), "900150983cd24fb0d6963f7d28e17f72")
+        let checksum = try FileActionService.createMD5File(for: file)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: checksum.path))
+        XCTAssertTrue(try String(contentsOf: checksum, encoding: .utf8).hasPrefix("900150983cd24fb0d6963f7d28e17f72"))
+    }
+
+    func testEncryptDecryptRoundTrip() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let file = base.appendingPathComponent("secret.txt")
+        try "hemligt".write(to: file, atomically: true, encoding: .utf8)
+
+        let encrypted = try FileActionService.encrypt(file: file, passphrase: "losen")
+        XCTAssertEqual(encrypted.pathExtension, "twinenc")
+        XCTAssertNotEqual(try Data(contentsOf: encrypted), Data("hemligt".utf8))
+
+        let restored = base.appendingPathComponent("restored.txt")
+        try? FileManager.default.removeItem(at: file)
+        let decrypted = try FileActionService.decrypt(file: encrypted, passphrase: "losen")
+        XCTAssertEqual(decrypted.path, restored.path.replacingOccurrences(of: "restored", with: "secret"))
+        XCTAssertEqual(try String(contentsOf: decrypted, encoding: .utf8), "hemligt")
+
+        XCTAssertThrowsError(try FileActionService.decrypt(file: encrypted, passphrase: "fel"))
+    }
+
+    func testDirectorySizeAndCompress() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let sub = base.appendingPathComponent("sub")
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        try String(repeating: "x", count: 100).write(to: sub.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+        try String(repeating: "y", count: 50).write(to: base.appendingPathComponent("b.txt"), atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(DirectorySizeService.computeSize(of: base), 150)
+        let service = DirectorySizeService()
+        let size = await service.size(for: base)
+        XCTAssertEqual(size, 150)
+
+        let archive = try FileActionService.compress(items: [sub], in: base)
+        XCTAssertEqual(archive.pathExtension, "zip")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

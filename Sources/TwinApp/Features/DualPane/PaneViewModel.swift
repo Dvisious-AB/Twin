@@ -48,6 +48,9 @@ final class PaneViewModel: ObservableObject {
     @Published var isSearchEditing = false
     @Published var searchFocusTrigger = 0
     @Published var lastOperationSummary: String?
+    @Published var directorySizes: [String: UInt64] = [:]
+    @Published var editingURL: URL?
+    @Published var computingSizes: Set<String> = []
 
     func focusSearch() { searchFocusTrigger += 1 }
     @Published var loadState: DirectoryLoadState = .loaded(itemCount: 0)
@@ -151,6 +154,36 @@ final class PaneViewModel: ObservableObject {
         }
         .sorted { $0.name.lowercased() < $1.name.lowercased() }
         loadState = DirectoryLoadState.state(contents: contents, for: currentURL)
+        // Keyboard-first: preselect the first row so arrows work immediately.
+        if selection.isEmpty, let first = items.first {
+            selection = [first.url]
+        }
+        computeDirectorySizes()
+    }
+
+    /// Background directory sizes (cached in DirectorySizeService).
+    private func computeDirectorySizes() {
+        let directories = items.filter(\.isDirectory).map(\.url)
+        for url in directories where directorySizes[url.path] == nil && !computingSizes.contains(url.path) {
+            computingSizes.insert(url.path)
+            Task { [weak self] in
+                let size = await DirectorySizeService.shared.size(for: url)
+                await MainActor.run {
+                    self?.directorySizes[url.path] = size
+                    self?.computingSizes.remove(url.path)
+                }
+            }
+        }
+    }
+
+    func directorySizeText(for item: FileItem) -> String {
+        guard item.isDirectory else {
+            return ByteCountFormatter.string(fromByteCount: Int64(item.size), countStyle: .file)
+        }
+        if let size = directorySizes[item.url.path] {
+            return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+        }
+        return computingSizes.contains(item.url.path) ? "…" : "--"
     }
 
     func navigate(to url: URL) {
@@ -257,6 +290,70 @@ final class PaneViewModel: ObservableObject {
         guard !incoming.isEmpty else { return false }
         await performFileOperation(urls: incoming, to: currentURL, move: false)
         return true
+    }
+
+    // MARK: - File actions (keyboard-first)
+
+    func compressSelected() {
+        let urls = Array(selection)
+        guard !urls.isEmpty else { return }
+        do {
+            let archive = try FileActionService.compress(items: urls, in: currentURL)
+            lastOperationSummary = "Packed \(archive.lastPathComponent)"
+        } catch {
+            lastOperationSummary = error.localizedDescription
+        }
+        refresh()
+    }
+
+    func createMD5ForSelected() {
+        let files = selection.filter { url in
+            (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false
+        }
+        guard !files.isEmpty else { return }
+        var created = 0
+        for url in files {
+            if (try? FileActionService.createMD5File(for: url)) != nil { created += 1 }
+        }
+        lastOperationSummary = created > 0 ? "Created \(created) MD5 file(s)" : "MD5 failed"
+        refresh()
+    }
+
+    func trashSelected() {
+        let urls = Array(selection)
+        guard !urls.isEmpty else { return }
+        do {
+            try FileActionService.trash(items: urls)
+            selection.removeAll()
+            lastOperationSummary = "Moved \(urls.count) item(s) to Trash"
+        } catch {
+            lastOperationSummary = error.localizedDescription
+        }
+        refresh()
+    }
+
+    /// Opens the built-in editor for the first selected regular file.
+    func editSelected() {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first,
+              let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey]),
+              values.isDirectory == false, (values.fileSize ?? 0) < 2_000_000 else { return }
+        editingURL = url
+    }
+
+    func encryptSelected(passphrase: String) {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first else { return }
+        do {
+            if url.pathExtension == FileActionService.encryptedExtension {
+                let output = try FileActionService.decrypt(file: url, passphrase: passphrase)
+                lastOperationSummary = "Decrypted \(output.lastPathComponent)"
+            } else {
+                let output = try FileActionService.encrypt(file: url, passphrase: passphrase)
+                lastOperationSummary = "Encrypted \(output.lastPathComponent)"
+            }
+        } catch {
+            lastOperationSummary = error.localizedDescription
+        }
+        refresh()
     }
 
     func makeDragProvider(for item: FileItem) -> NSItemProvider {

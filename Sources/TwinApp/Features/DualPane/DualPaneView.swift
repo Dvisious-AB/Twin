@@ -9,6 +9,9 @@ struct DualPaneView: View {
     @State var selected: Int = 0
     @FocusState private var paneFocus: Int?
     @State private var showPaywall = false
+    @State private var showEncryptPrompt = false
+    @State private var showDeleteConfirm = false
+    @State private var passphrase = ""
     @ObservedObject private var store = StoreKitManager.shared
 
     /// Total Commander-style function bar: the pane operations live here,
@@ -29,11 +32,34 @@ struct DualPaneView: View {
             Button("F5 Copy") {
                 Task { await activePane.copySelected(to: inactivePane.currentURL); inactivePane.refresh() }
             }
+            .keyboardShortcut("5", modifiers: .command)
             .disabled(activePane.selection.isEmpty)
             Button("F6 Move") {
                 Task { await activePane.moveSelected(to: inactivePane.currentURL); inactivePane.refresh() }
             }
+            .keyboardShortcut("6", modifiers: .command)
             .disabled(activePane.selection.isEmpty)
+            Divider().frame(height: 16)
+            Button("Edit") { activePane.editSelected() }
+                .keyboardShortcut("e", modifiers: .command)
+                .disabled(activePane.selection.isEmpty)
+                .help("Edit selected file (F4 / Cmd+E)")
+            Button("Pack") { activePane.compressSelected() }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(activePane.selection.isEmpty)
+                .help("Compress to .zip (Alt+F5 / Cmd+Shift+C)")
+            Button("MD5") { activePane.createMD5ForSelected() }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(activePane.selection.isEmpty)
+                .help("Create .md5 checksum file (Cmd+Shift+M)")
+            Button("Encrypt") { showEncryptPrompt = true }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(activePane.selection.isEmpty)
+                .help("Encrypt/decrypt with passphrase (Cmd+Shift+E)")
+            Button("Delete") { showDeleteConfirm = true }
+                .keyboardShortcut(.delete, modifiers: .command)
+                .disabled(activePane.selection.isEmpty)
+                .help("Move to Trash (F8 / Cmd+Delete)")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -88,6 +114,35 @@ struct DualPaneView: View {
             functionBar
         }
         .sheet(isPresented: $showPaywall) { PaywallView() }
+        .sheet(isPresented: $showEncryptPrompt) {
+            VStack(spacing: 14) {
+                Text("Encrypt / Decrypt").font(.headline)
+                Text("AES-GCM with a key from your passphrase. A .twinenc file is decrypted, anything else is encrypted.")
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                SecureField("Passphrase", text: $passphrase)
+                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    Button("Cancel") { showEncryptPrompt = false; passphrase = "" }
+                    Spacer()
+                    Button("Run") {
+                        let secret = passphrase
+                        passphrase = ""
+                        showEncryptPrompt = false
+                        activePane.encryptSelected(passphrase: secret)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(passphrase.isEmpty)
+                }
+            }
+            .padding(20)
+            .frame(width: 340)
+        }
+        .alert("Move to Trash?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Move to Trash", role: .destructive) { activePane.trashSelected() }
+        } message: {
+            Text("\(activePane.selection.count) item(s) will be moved to the Trash.")
+        }
         .onOpenURL { url in
             // twin://open?path=/some/folder  (from FinderSync "Open in Twin")
             guard url.scheme == "twin",
