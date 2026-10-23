@@ -396,19 +396,10 @@ struct DualPaneView: View {
                 Button { activePane.focusSearch() } label: { Label("Filter", systemImage: "magnifyingglass") }
                     .keyboardShortcut("f", modifiers: .command)
                     .help("Filter active pane (Cmd+F)")
-                Button {
-                    Task { await activePane.copySelected(to: inactivePane.currentURL); inactivePane.refresh() }
-                } label: { Label("F5 Copy", systemImage: "doc.on.doc") }
-                .keyboardShortcut("5", modifiers: .command)
-                .help("Copy selected to other pane (F5 / Cmd+5)")
-
-                Button { showPaywall = true } label: { Label(store.isProUnlocked ? "Twin Pro ✓" : "Twin Pro", systemImage: "crown") }
-                    .help("Twin Pro — Workspaces, Folder Sync, Batch Rename, Git badges")
-                Button {
-                    Task { await activePane.moveSelected(to: inactivePane.currentURL); inactivePane.refresh() }
-                } label: { Label("F6 Move", systemImage: "arrow.right.doc.on.clipboard") }
-                .keyboardShortcut("6", modifiers: .command)
-                .help("Move selected to other pane (F6 / Cmd+6)")
+                // F5/F6 live in the function bar only (no duplication),
+                // and Pro is not a permanent crown in the toolbar —
+                // locked Pro features surface the paywall from More
+                // (UX review P1-9).
             }
         }
     }

@@ -53,6 +53,7 @@ final class PaneViewModel: ObservableObject {
     @Published var searchText: String = ""
     @Published var isSearchEditing = false
     @Published var searchFocusTrigger = 0
+    @Published var isSearchFieldVisible = false
     @Published var lastOperationSummary: String?
     @Published var directorySizes: [String: UInt64] = [:]
     @Published var gitBadges: [String: GitStatusService.Badge] = [:]
@@ -64,7 +65,10 @@ final class PaneViewModel: ObservableObject {
     @Published var editingURL: URL?
     @Published var computingSizes: Set<String> = []
 
-    func focusSearch() { searchFocusTrigger += 1 }
+    func focusSearch() {
+        isSearchFieldVisible = true
+        searchFocusTrigger += 1
+    }
     @Published var loadState: DirectoryLoadState = .loaded(itemCount: 0)
 
     var filteredItems: [FileItem] {

@@ -1,5 +1,6 @@
 import QuickLook
 import SwiftUI
+import TwinCore
 import UniformTypeIdentifiers
 
 struct PaneView: View {
@@ -145,11 +146,20 @@ struct PaneView: View {
                 .help("Refresh")
             }
 
-            PaneSearchField(
-                text: $viewModel.searchText,
-                onFocusChange: { viewModel.isSearchEditing = $0 },
-                focusTrigger: viewModel.searchFocusTrigger
-            )
+            // The filter field only takes vertical space while it is
+            // being used (Cmd+F reveals it) — UX review P2-14.
+            if viewModel.isSearchFieldVisible || !viewModel.searchText.isEmpty {
+                PaneSearchField(
+                    text: $viewModel.searchText,
+                    onFocusChange: { focused in
+                        viewModel.isSearchEditing = focused
+                        if !focused, viewModel.searchText.isEmpty {
+                            viewModel.isSearchFieldVisible = false
+                        }
+                    },
+                    focusTrigger: viewModel.searchFocusTrigger
+                )
+            }
 
             if viewModel.isInSandboxContainer {
                 HStack(spacing: 6) {
@@ -244,16 +254,32 @@ struct PaneView: View {
             .sorted { a, b in a.isDirectory && !b.isDirectory }
     }
 
+    /// Name with the filter hit highlighted and the selection bolded
+    /// (UX review P0-4 + P1-7).
+    private func highlightedName(for item: FileItem) -> AttributedString {
+        var text = AttributedString(item.name)
+        if viewModel.selection.contains(item.url) {
+            text.font = .body.bold()
+        }
+        let query = viewModel.searchText
+        if !query.isEmpty,
+           let range = item.name.range(of: query, options: .caseInsensitive),
+           let attributedRange = Range(range, in: text) {
+            text[attributedRange].font = .body.bold()
+            text[attributedRange].foregroundColor = .accentColor
+        }
+        return text
+    }
+
     private var listView: some View {
         Table(sortedItems, selection: $viewModel.selection, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.name) { item in
                 HStack(spacing: 6) {
                     FileItemIcon(item: item)
-                    Text(item.name)
+                    Text(highlightedName(for: item))
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .help(item.url.path)
-                        .fontWeight(viewModel.selection.contains(item.url) ? .bold : .regular)
                     if let badge = viewModel.gitBadge(for: item) {
                         Text(badge.rawValue)
                             .font(.caption2.bold())
@@ -269,8 +295,19 @@ struct PaneView: View {
                 Text(viewModel.directorySizeText(for: item))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                    .help(item.isDirectory && DirectorySizeService.isProtectedFolder(item.url)
+                        ? "Size is not calculated for macOS-protected folders (would trigger a permission prompt). "
+                            + "Open the folder to see sizes inside."
+                        : "")
             }
             .width(min: 70, ideal: 90)
+            TableColumn("Type") { item in
+                Text(item.isDirectory
+                    ? "Folder"
+                    : (item.url.pathExtension.isEmpty ? "File" : item.url.pathExtension.uppercased()))
+                    .foregroundStyle(.secondary)
+            }
+            .width(min: 50, ideal: 64)
             TableColumn("Modified", value: \.modifiedDate) { item in
                 Text(item.modifiedDate, format: .dateTime.day().month(.abbreviated).hour().minute())
                     .foregroundStyle(.secondary)
@@ -278,6 +315,9 @@ struct PaneView: View {
             }
             .width(min: 130, ideal: 150)
         }
+        // No alternating filler rows below the last real row
+        // (they read as ghost/missing files — UX review P1-10).
+        .tableStyle(.inset(alternatesRowBackgrounds: false))
         .onTapGesture(count: 2) { viewModel.openFirstSelected() }
         .contextMenu(forSelectionType: URL.self) { _ in
             Button("Open") { viewModel.openFirstSelected() }
@@ -294,14 +334,18 @@ struct PaneView: View {
         ScrollView {
             LazyVGrid(columns: iconColumns, spacing: 14) {
                 ForEach(viewModel.filteredItems, id: \.url) { item in
-                    VStack(spacing: 6) {
+                    VStack(spacing: 4) {
                         FileItemIcon(item: item, size: 32)
                         Text(item.name)
                             .font(.caption)
                             .lineLimit(2)
                             .multilineTextAlignment(.center)
+                        Text(viewModel.directorySizeText(for: item))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
                     }
-                    .frame(width: 84, height: 84)
+                    .frame(width: 84, height: 92)
                     .background(
                         viewModel.selection.contains(item.url)
                             ? Color.accentColor.opacity(isActive ? 0.35 : 0.15)
@@ -366,8 +410,10 @@ struct PaneView: View {
                     .help("Files anyone can write to — open Assistant for details")
             }
             if let insights = viewModel.insights, !insights.orphanFiles.isEmpty {
-                Text("· \(insights.orphanFiles.count) orphans")
-                    .help("Loose files untouched for over 90 days — Assistant can collect them")
+                Text(insights.orphanFiles.count == 1
+                    ? "· 1 old file"
+                    : "· \(insights.orphanFiles.count) old files")
+                    .help("Loose files untouched for over 90 days — Assistant can collect them into a catalog")
             }
             Spacer()
             if let free = freeSpaceText {
