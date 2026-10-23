@@ -27,7 +27,7 @@ targets:
         INFOPLIST_FILE: Sources/TwinApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/TwinApp/Twin.entitlements
     dependencies:
-      - target: FinderSync
+      - target: FinderSyncExtension
     info:
       path: Sources/TwinApp/Info.plist
       properties:
@@ -40,7 +40,7 @@ targets:
         LSMinimumSystemVersion: "14.0"
         NSPrincipalClass: NSApplication
         NSHighResolutionCapable: true
-  FinderSync:
+  FinderSyncExtension:
     type: app-extension
     platform: macOS
     deploymentTarget: "14.0"
@@ -56,7 +56,7 @@ schemes:
     build:
       targets:
         TwinApp: all
-        FinderSync: all
+        FinderSyncExtension: all
     run:
       config: Debug
       executable: TwinApp
