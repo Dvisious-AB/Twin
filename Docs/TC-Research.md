@@ -20,11 +20,19 @@ genvägsöversikter för Total Commander. Undersökt 2026-10-23.
 SwiftUI saknar F-tangenter i `KeyEquivalent`, därav Cmd-mappningarna.
 Knapparna i funktionsraden ska alltid visa TC-namnen (F5 Copy osv).
 
-## Navigation
+## Navigation (verifierat mot Ghislers dokumentation/forum)
 
-- Enter: öppna mapp/fil. Pil upp/ned: flytta markering (Table sköter det).
-- Backspace: upp en nivå (`..`). Finns nu i Twin.
-- Tab: byt panel. Alt+Tab/Cmd+1/Cmd+2 som komplement (finns).
+- **Backspace eller Ctrl+PgUp: upp en nivå** (`cd ..`). På Mac är
+  Delete-tangenten (⌫) just Backspace — i Twin går ⌫ upp en nivå.
+  Radera filer är i TC F8/Del (framåt-delete); i Twin Cmd+⌫ till
+  papperskorgen. Den uppdelningen är medveten och dokumenterad i hjälptexter.
+- **Ctrl+PgDn / Enter: öppna mapp.** I Twin: Enter eller dubbelklick.
+- **Alt+Pil vänster/höger: bakåt/framåt i historiken**, Alt+Ned: historiklista.
+  I Twin: Alt+Pil samt < >-knapparna i panelhuvudet (historik per panel).
+- **Ctrl+\\: till roten.** Spårat, ej implementerat som tangent ännu.
+- Pil upp/ned: flytta markering (Table sköter det). När man går upp en
+  nivå placerar TC markören på mappen man kom ifrån — implementerat i Twin.
+- Tab: byt panel. Cmd+1/Cmd+2 som komplement (finns).
 - Fokus ska ligga på fillistan direkt när panelen blir aktiv — inget
   musklick först. Krav från ProductOwner, implementerat via `@FocusState`.
 

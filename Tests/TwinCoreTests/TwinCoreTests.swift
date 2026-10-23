@@ -98,6 +98,40 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
     }
 
+    func testPermissionsRoundTrip() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let file = base.appendingPathComponent("note.txt")
+        try "x".write(to: file, atomically: true, encoding: .utf8)
+
+        try FilePermissionService.setPermissions(FilePermissions(octal: 0o600), for: file)
+        let readBack = try FilePermissionService.permissions(for: file)
+        XCTAssertEqual(readBack.octal, 0o600)
+        XCTAssertEqual(readBack.octalString, "600")
+        XCTAssertEqual(readBack.symbolic, "rw-------")
+        XCTAssertEqual(FilePermissions(octal: 0o755).symbolic, "rwxr-xr-x")
+    }
+
+    func testOrganizePlanAndRun() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        for name in ["a.jpg", "b.pdf", "c.swift"] {
+            try "x".write(to: base.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        let items = try FileManager.default.contentsOfDirectory(at: base, includingPropertiesForKeys: nil)
+        let plan = FileActionService.organizePlan(items: items)
+        XCTAssertEqual(plan[.images]?.count, 1)
+        XCTAssertEqual(plan[.documents]?.count, 1)
+        XCTAssertEqual(plan[.code]?.count, 1)
+
+        let moved = try FileActionService.organize(items: items, in: base)
+        XCTAssertEqual(moved.values.reduce(0, +), 3)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: base.appendingPathComponent("Images/a.jpg").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: base.appendingPathComponent("Code/c.swift").path))
+    }
+
     // FileCoordinatorService: coordinated copy lands on disk.
     func testCoordinatedCopy() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

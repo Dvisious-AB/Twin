@@ -42,8 +42,19 @@ struct PaneView: View {
             return .handled
         }
         .onKeyPress(.delete) {
-            // Backspace = up one level (Total Commander / Norton convention).
+            // Mac's Delete key is Backspace: up one level (TC: Backspace / Ctrl+PageUp).
+            // Deleting files is Cmd+Delete (TC: F8/Del) in the function bar.
             viewModel.goUp()
+            return .handled
+        }
+        .onKeyPress(.leftArrow, phases: .down) { press in
+            guard press.modifiers.contains(.option) else { return .ignored }
+            viewModel.goBack()
+            return .handled
+        }
+        .onKeyPress(.rightArrow, phases: .down) { press in
+            guard press.modifiers.contains(.option) else { return .ignored }
+            viewModel.goForward()
             return .handled
         }
         .onKeyPress(.tab) {
@@ -78,11 +89,23 @@ struct PaneView: View {
     private var header: some View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
+                Button { viewModel.goBack() } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .buttonStyle(.borderless)
+                .disabled(!viewModel.canGoBack)
+                .help("Back (Alt+Left)")
+                Button { viewModel.goForward() } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .buttonStyle(.borderless)
+                .disabled(!viewModel.canGoForward)
+                .help("Forward (Alt+Right)")
                 Button { viewModel.goUp() } label: {
                     Image(systemName: "arrow.up")
                 }
                 .buttonStyle(.borderless)
-                .help("Go up")
+                .help("Up one level (Backspace / Delete key)")
 
                 breadcrumbs
                 Spacer()
@@ -203,7 +226,11 @@ struct PaneView: View {
     @State private var sortOrder = [KeyPathComparator(\FileItem.name)]
 
     private var sortedItems: [FileItem] {
-        viewModel.filteredItems.sorted(using: sortOrder)
+        // Standard: directories first, files after (Finder/TC convention),
+        // then the chosen column order inside each group.
+        viewModel.filteredItems
+            .sorted(using: sortOrder)
+            .sorted { a, b in a.isDirectory && !b.isDirectory }
     }
 
     private var listView: some View {

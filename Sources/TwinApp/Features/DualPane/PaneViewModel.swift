@@ -49,6 +49,10 @@ final class PaneViewModel: ObservableObject {
     @Published var searchFocusTrigger = 0
     @Published var lastOperationSummary: String?
     @Published var directorySizes: [String: UInt64] = [:]
+    private var backHistory: [URL] = []
+    private var forwardHistory: [URL] = []
+    var canGoBack: Bool { !backHistory.isEmpty }
+    var canGoForward: Bool { !forwardHistory.isEmpty }
     @Published var editingURL: URL?
     @Published var computingSizes: Set<String> = []
 
@@ -152,7 +156,7 @@ final class PaneViewModel: ObservableObject {
                 modifiedDate: values?.contentModificationDate ?? .distantPast
             )
         }
-        .sorted { $0.name.lowercased() < $1.name.lowercased() }
+        .sorted { a, b in a.isDirectory != b.isDirectory ? a.isDirectory : a.name.lowercased() < b.name.lowercased() }
         loadState = DirectoryLoadState.state(contents: contents, for: currentURL)
         // Keyboard-first: preselect the first row so arrows work immediately.
         if selection.isEmpty, let first = items.first {
@@ -187,8 +191,16 @@ final class PaneViewModel: ObservableObject {
     }
 
     func navigate(to url: URL) {
+        navigate(to: url, recordHistory: true)
+    }
+
+    private func navigate(to url: URL, recordHistory: Bool) {
         // Persist a security-scoped bookmark for the folder we enter,
         // and start accessing it so the sandbox keeps access across launches.
+        if recordHistory, url != currentURL {
+            backHistory.append(currentURL)
+            forwardHistory.removeAll()
+        }
         bookmarkStore.saveBookmark(for: url)
         let resolved = bookmarkStore.startAccessing(url)
         currentURL = resolved
@@ -196,12 +208,34 @@ final class PaneViewModel: ObservableObject {
         refresh()
     }
 
+    /// Alt+Left in Total Commander: previous folder in history.
+    func goBack() {
+        guard let previous = backHistory.popLast() else { return }
+        forwardHistory.append(currentURL)
+        navigate(to: previous, recordHistory: false)
+    }
+
+    /// Alt+Right: next folder in history.
+    func goForward() {
+        guard let next = forwardHistory.popLast() else { return }
+        backHistory.append(currentURL)
+        navigate(to: next, recordHistory: false)
+    }
+
+    /// Ctrl+backslash in Total Commander: jump to root.
+    func goToRoot() {
+        navigate(to: URL(fileURLWithPath: "/"))
+    }
+
     func goUp() {
+        let child = currentURL
         let parent = currentURL.deletingLastPathComponent()
         guard parent.path != currentURL.path else { return }
-        currentURL = parent
-        selection.removeAll()
-        refresh()
+        navigate(to: parent)
+        // Total Commander places the cursor on the folder you came from.
+        if items.contains(where: { $0.url == child }) {
+            selection = [child]
+        }
     }
 
     func openFirstSelected() {
@@ -354,6 +388,26 @@ final class PaneViewModel: ObservableObject {
             lastOperationSummary = error.localizedDescription
         }
         refresh()
+    }
+
+    /// Organize assistant: move all loose files here into category folders.
+    func organizeFolder() {
+        let files = items.filter { !$0.isDirectory }.map(\.url)
+        guard !files.isEmpty else { return }
+        do {
+            let moved = try FileActionService.organize(items: files, in: currentURL)
+            let total = moved.values.reduce(0, +)
+            lastOperationSummary = "Organized \(total) file(s) into \(moved.count) folder(s)"
+        } catch {
+            lastOperationSummary = error.localizedDescription
+        }
+        refresh()
+    }
+
+    var organizePlanSummary: [(category: String, count: Int)] {
+        FileActionService.organizePlan(items: items.map(\.url))
+            .map { (category: $0.key.rawValue, count: $0.value.count) }
+            .sorted { $0.count > $1.count }
     }
 
     func makeDragProvider(for item: FileItem) -> NSItemProvider {

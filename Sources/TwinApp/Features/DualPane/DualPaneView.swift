@@ -12,6 +12,8 @@ struct DualPaneView: View {
     @State private var showEncryptPrompt = false
     @State private var showDeleteConfirm = false
     @State private var passphrase = ""
+    @State private var showPermissions = false
+    @State private var showAssistant = false
     @ObservedObject private var store = StoreKitManager.shared
 
     /// Total Commander-style function bar: the pane operations live here,
@@ -56,6 +58,14 @@ struct DualPaneView: View {
                 .keyboardShortcut("e", modifiers: [.command, .shift])
                 .disabled(activePane.selection.isEmpty)
                 .help("Encrypt/decrypt with passphrase (Cmd+Shift+E)")
+            Button("Permissions") { showPermissions = true }
+                .keyboardShortcut("i", modifiers: .command)
+                .disabled(activePane.selection.count != 1)
+                .help("Permissions for selected item (Cmd+I)")
+            Button { showAssistant = true } label: {
+                Label("Assistant", systemImage: "sparkles")
+            }
+            .help("Organize and help (on-device)")
             Button("Delete") { showDeleteConfirm = true }
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(activePane.selection.isEmpty)
@@ -114,6 +124,14 @@ struct DualPaneView: View {
             functionBar
         }
         .sheet(isPresented: $showPaywall) { PaywallView() }
+        .sheet(isPresented: $showPermissions) {
+            if let url = activePane.selection.first {
+                PermissionsView(url: url) { activePane.refresh() }
+            }
+        }
+        .sheet(isPresented: $showAssistant) {
+            AssistantView(viewModel: activePane)
+        }
         .sheet(isPresented: $showEncryptPrompt) {
             VStack(spacing: 14) {
                 Text("Encrypt / Decrypt").font(.headline)
