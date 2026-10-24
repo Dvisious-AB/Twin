@@ -154,7 +154,8 @@ extension TwinUITests {
         defer { try? FileManager.default.removeItem(at: folder) }
 
         let encoded = folder.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? folder.path
-        XCTAssertTrue(NSWorkspace.shared.open(URL(string: "twin://open?path=\(encoded)")!))
+        let deepLink = try XCTUnwrap(URL(string: "twin://open?path=\(encoded)"))
+        XCTAssertTrue(NSWorkspace.shared.open(deepLink))
         // Table cells carry no AX label; the name is a text inside.
         let fileText = app.staticTexts.matching(
             NSPredicate(format: "label == %@ OR value == %@", "viewme.md", "viewme.md")).firstMatch
