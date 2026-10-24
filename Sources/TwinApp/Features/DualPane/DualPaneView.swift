@@ -7,11 +7,23 @@ struct DualPaneView: View {
     @StateObject var leftTabs: PaneTabs
     @StateObject var rightTabs: PaneTabs
 
+    /// True when nothing has been granted/restored yet — the app then
+    /// asks for the home folder once instead of opening the container.
+    private let isFirstRun: Bool
+
     init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        _leftTabs = StateObject(wrappedValue: PaneTabs(first: home, storageKey: "twin.session.left"))
+        // Real start folders, never the sandbox container: left pane
+        // home, right pane Desktop (Documents fallback).
+        let places = UserPlaces.current
+        // A saved session counts only if it points at real folders —
+        // older builds saved sandbox-container paths.
+        let savedPaths = UserDefaults.standard.stringArray(forKey: "twin.session.left.paths") ?? []
+        let hadSession = savedPaths.contains { !$0.contains("/Library/Containers/") }
+        let hasHomeBookmark = BookmarkStore.shared.resolveBookmark(for: places.home) != nil
+        isFirstRun = !hadSession && !hasHomeBookmark
+        _leftTabs = StateObject(wrappedValue: PaneTabs(first: places.home, storageKey: "twin.session.left"))
         _rightTabs = StateObject(wrappedValue: PaneTabs(
-            first: home.appendingPathComponent("Documents"), storageKey: "twin.session.right"
+            first: places.defaultRightPaneFolder, storageKey: "twin.session.right"
         ))
         _selected = State(initialValue: UserDefaults.standard.integer(forKey: "twin.session.activeSide"))
     }
@@ -27,6 +39,7 @@ struct DualPaneView: View {
     @State private var passphrase = ""
     @State private var showPermissions = false
     @State private var showAssistant = false
+    @State private var showFirstRunGrant = false
     @State private var showNewFolder = false
     @State private var showRename = false
     @State private var newName = ""
@@ -253,6 +266,43 @@ struct DualPaneView: View {
         }
     }
 
+    /// Navigates to a known place, asking for access first when the
+    /// sandbox cannot read it yet (bookmark grant via open panel).
+    private func navigateOrGrant(to url: URL, for pane: PaneViewModel) {
+        if (try? FileManager.default.contentsOfDirectory(atPath: url.path)) != nil {
+            pane.navigate(to: url)
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Grant Access"
+        panel.message = "Grant Twin access to \(url.lastPathComponent). macOS remembers this via a bookmark."
+        panel.directoryURL = url
+        if panel.runModal() == .OK, let granted = panel.url {
+            pane.navigate(to: granted)
+        }
+    }
+
+    /// First-run: one explicit grant of the home folder, then the
+    /// panes start at home (left) and Desktop (right) forever after.
+    private func grantHomeFolder() {
+        let places = UserPlaces.current
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Grant Access"
+        panel.message = "Choose your home folder. Twin bookmarks it and starts there next time — no sandbox container."
+        panel.directoryURL = places.home
+        if panel.runModal() == .OK, let url = panel.url {
+            left.navigate(to: url)
+            right.navigate(to: places.defaultRightPaneFolder)
+        }
+        showFirstRunGrant = false
+    }
+
     private var activePane: PaneViewModel { selected == 0 ? left : right }
     private var inactivePane: PaneViewModel { selected == 0 ? right : left }
 
@@ -290,6 +340,15 @@ struct DualPaneView: View {
         bridge.setIconView = { activePane.viewMode = .icon }
         bridge.newTab = { activeTabs.newTab() }
         bridge.closeTab = { activeTabs.closeActive() }
+        let places = UserPlaces.current
+        bridge.iCloudAvailable = places.iCloudDrive != nil
+        bridge.goHome = { navigateOrGrant(to: places.home, for: activePane) }
+        bridge.goDesktop = { navigateOrGrant(to: places.desktop, for: activePane) }
+        bridge.goDocuments = { navigateOrGrant(to: places.documents, for: activePane) }
+        bridge.goDownloads = { navigateOrGrant(to: places.downloads, for: activePane) }
+        bridge.goICloud = {
+            if let drive = places.iCloudDrive { navigateOrGrant(to: drive, for: activePane) }
+        }
     }
 
     /// Real Total Commander function keys (F4/F5/F6/F7/F8). SwiftUI has
@@ -332,7 +391,10 @@ struct DualPaneView: View {
             functionBar
         }
         .background(FunctionKeyHandler { handleFunctionKey($0) })
-        .onAppear { syncMenuBridge() }
+        .onAppear {
+            syncMenuBridge()
+            if isFirstRun { showFirstRunGrant = true }
+        }
         .onChange(of: selected) { _, side in
             UserDefaults.standard.set(side, forKey: "twin.session.activeSide")
             syncMenuBridge()
@@ -347,6 +409,22 @@ struct DualPaneView: View {
         }
         .sheet(isPresented: $showAssistant) {
             AssistantView(viewModel: activePane)
+        }
+        .sheet(isPresented: $showFirstRunGrant) {
+            VStack(spacing: 14) {
+                Text("Welcome to Twin").font(.title3.bold())
+                Text("Twin starts in your home folder (left) and Desktop (right). "
+                    + "macOS asks you to grant the home folder once — Twin bookmarks it "
+                    + "and never opens its sandbox container again.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 380)
+                Button("Choose Home Folder…") { grantHomeFolder() }
+                    .keyboardShortcut(.defaultAction)
+                Button("Later") { showFirstRunGrant = false }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(24)
         }
         .sheet(isPresented: $showNewFolder) {
             nameSheet(title: "New Folder", prompt: "Folder name") {

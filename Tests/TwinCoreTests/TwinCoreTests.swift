@@ -151,6 +151,17 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertEqual(DirectorySizeService.computeSize(of: base), 100)
     }
 
+    func testUserPlaces() {
+        let places = UserPlaces(home: URL(fileURLWithPath: "/Users/tester"))
+        XCTAssertEqual(places.desktop.path, "/Users/tester/Desktop")
+        XCTAssertEqual(places.documents.path, "/Users/tester/Documents")
+        XCTAssertEqual(places.downloads.path, "/Users/tester/Downloads")
+        // No iCloud Drive under a nonexistent home.
+        XCTAssertNil(places.iCloudDrive)
+        // Desktop missing → Documents is the right-pane default.
+        XCTAssertEqual(places.defaultRightPaneFolder.path, "/Users/tester/Documents")
+    }
+
     func testProtectedFolderDetection() {
         let protected = [
             "/Users/aelmen/Desktop", "/Users/aelmen/Documents", "/Users/aelmen/Downloads",

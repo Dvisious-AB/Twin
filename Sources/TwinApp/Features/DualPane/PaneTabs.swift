@@ -38,7 +38,10 @@ final class PaneTabs: ObservableObject {
         self.storageKey = storageKey
         if let storageKey,
            let paths = UserDefaults.standard.stringArray(forKey: storageKey + ".paths"),
-           !paths.isEmpty {
+           !paths.isEmpty,
+           // Sessions saved by older builds may point into the sandbox
+           // container — never restore those; use the real defaults.
+           !paths.contains(where: { $0.contains("/Library/Containers/") }) {
             tabs = paths.map { PaneViewModel(initialPath: URL(fileURLWithPath: $0)) }
             activeIndex = min(max(UserDefaults.standard.integer(forKey: storageKey + ".active"), 0), tabs.count - 1)
         } else {

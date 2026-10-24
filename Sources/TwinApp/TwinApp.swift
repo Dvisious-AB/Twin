@@ -62,6 +62,15 @@ struct TwinApp: App {
                     .keyboardShortcut("i", modifiers: .command)
                     .disabled(!menuBridge.singleSelection)
             }
+            CommandMenu("Go") {
+                Button("Home") { menuBridge.goHome() }
+                Button("Desktop") { menuBridge.goDesktop() }
+                Button("Documents") { menuBridge.goDocuments() }
+                Button("Downloads") { menuBridge.goDownloads() }
+                Divider()
+                Button("iCloud Drive") { menuBridge.goICloud() }
+                    .disabled(!menuBridge.iCloudAvailable)
+            }
             CommandMenu("Show") {
                 Button("List View") { menuBridge.setListView() }
                     .keyboardShortcut("3", modifiers: .command)

@@ -33,4 +33,11 @@ final class AppMenuBridge: ObservableObject {
     var setIconView: () -> Void = {}
     var newTab: () -> Void = {}
     var closeTab: () -> Void = {}
+
+    @Published var iCloudAvailable = false
+    var goHome: () -> Void = {}
+    var goDesktop: () -> Void = {}
+    var goDocuments: () -> Void = {}
+    var goDownloads: () -> Void = {}
+    var goICloud: () -> Void = {}
 }
