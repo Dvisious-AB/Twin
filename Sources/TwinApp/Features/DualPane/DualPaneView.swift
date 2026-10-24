@@ -40,6 +40,7 @@ struct DualPaneView: View {
     @State private var showPermissions = false
     @State private var showAssistant = false
     @State private var showHandlersGuide = false
+    @State private var showFileSearch = false
     @State private var showFirstRunGrant = false
     @State private var showNewFolder = false
     @State private var showRename = false
@@ -155,6 +156,7 @@ struct DualPaneView: View {
                 Divider()
                 Button("Permissions…") { showPermissions = true }
                     .disabled(activePane.selection.count != 1)
+                Button("Find Files…") { showFileSearch = true }
                 Button("File Type Handlers…") { showHandlersGuide = true }
                 Button("Assistant…") { showAssistant = true }
             }
@@ -363,6 +365,7 @@ struct DualPaneView: View {
             if store.isProUnlocked { showBatchRename = true } else { showPaywall = true }
         }
         bridge.focusFilter = { activePane.focusSearch() }
+        bridge.findFiles = { showFileSearch = true }
         bridge.setListView = { activePane.viewMode = .list }
         bridge.setIconView = { activePane.viewMode = .icon }
         bridge.newTab = { activeTabs.newTab() }
@@ -442,6 +445,13 @@ struct DualPaneView: View {
         }
         .sheet(isPresented: $showHandlersGuide) {
             FileHandlersSettingsView()
+        }
+        .sheet(isPresented: $showFileSearch) {
+            FileSearchView(
+                root: activePane.currentURL,
+                onReveal: { url in activePane.revealResult(url) },
+                onOpen: { url in activePane.openResult(url) }
+            )
         }
         .sheet(isPresented: $showFirstRunGrant) {
             VStack(spacing: 14) {

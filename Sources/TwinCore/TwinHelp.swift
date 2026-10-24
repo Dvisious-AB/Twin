@@ -87,6 +87,10 @@ public enum TwinHelp {
         HelpTopic(keywords: ["edit", "rediger", "text", "editor", "anteckn"],
                   answer: "Select a text file and press Cmd+E to open Twin's built-in editor. Cmd+S saves back to the same file." +
                       "Files over 2 MB or non-UTF-8 files can't be edited this way."),
+        HelpTopic(keywords: ["find", "sök", "search", "hitta", "rekursiv", "alt+f7", "innehåll"],
+                  answer: "Cmd+Shift+F (Commands ▸ Find Files) searches recursively under the active pane's folder: by file " +
+                      "name and, if you fill in Text in files, inside text files too. Double-click a result to show it in " +
+                      "the pane, or use Open to open it. Cmd+F is the quick filter for the current folder only."),
         HelpTopic(keywords: ["view", "visa", "viewer", "f3", "förhandsvisa", "öppna med", "open with",
                               "filtyp", "file type", "standardapp", "default app", "extern editor", "egen editor"],
                   answer: "F3 opens Twin's built-in viewer (text/code with line numbers, Markdown rendered, images, PDF, " +

@@ -264,3 +264,56 @@ extension TwinUITests {
         app.buttons["Done"].click()
     }
 }
+
+extension TwinUITests {
+    // Find Files (recursive search): deep-link a fixture tree into
+    // the pane, search by name, and get an actionable result.
+    func testFindFilesRecursiveSearch() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinSearchFixture")
+        let sub = folder.appendingPathComponent("sub")
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        try "needle in a haystack".write(
+            to: sub.appendingPathComponent("findme-rapport.txt"),
+            atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        let encoded = folder.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? folder.path
+        let deepLink = try XCTUnwrap(URL(string: "twin://open?path=\(encoded)"))
+        terminateStrayTwins()
+        // Launch Services can refuse while a previous instance is
+        // still terminating; retry briefly.
+        var delivered = false
+        for _ in 0..<5 where !delivered {
+            delivered = NSWorkspace.shared.open(deepLink)
+            if !delivered { Thread.sleep(forTimeInterval: 1) }
+        }
+        XCTAssertTrue(delivered)
+        // Wait until the pane shows the fixture root (the sub folder).
+        let subText = app.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@", "sub", "sub")).firstMatch
+        XCTAssertTrue(subText.waitForExistence(timeout: 15))
+
+        app.menuBars.menuBarItems["Commands"].click()
+        let item = app.menuBars.menuItems["Find Files…"]
+        XCTAssertTrue(item.waitForExistence(timeout: 10))
+        item.click()
+
+        let nameField = app.textFields["searchNameField"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 15))
+        nameField.click()
+        nameField.typeText("findme")
+        app.buttons["Search"].click()
+        let result = app.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@",
+                        "findme-rapport.txt", "findme-rapport.txt")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 20))
+        // Show in Pane reveals it in the folder tree and closes the sheet.
+        app.buttons["Show in Pane"].firstMatch.click()
+        XCTAssertFalse(app.buttons["Search"].waitForExistence(timeout: 5))
+        let revealed = app.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@",
+                        "findme-rapport.txt", "findme-rapport.txt")).firstMatch
+        XCTAssertTrue(revealed.waitForExistence(timeout: 15))
+    }
+}

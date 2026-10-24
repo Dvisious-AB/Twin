@@ -490,3 +490,59 @@ final class FileTypeRegistryTests: XCTestCase {
         XCTAssertTrue(store.customHandlers.isEmpty)
     }
 }
+
+final class FileSearchServiceTests: XCTestCase {
+    private func makeTree() throws -> URL {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinSearch-\(UUID().uuidString)")
+        let sub = root.appendingPathComponent("sub/deep")
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        try "hello world".write(to: root.appendingPathComponent("notes.txt"),
+                                atomically: true, encoding: .utf8)
+        try "nothing here".write(to: sub.appendingPathComponent("other.md"),
+                                 atomically: true, encoding: .utf8)
+        try "say hello again".write(to: sub.appendingPathComponent("deep.log"),
+                                    atomically: true, encoding: .utf8)
+        try "hidden hello".write(to: root.appendingPathComponent(".secret.txt"),
+                                 atomically: true, encoding: .utf8)
+        return root
+    }
+
+    func testNameSearchIsRecursive() async throws {
+        let root = try makeTree()
+        defer { try? FileManager.default.removeItem(at: root) }
+        var query = FileSearchService.Query()
+        query.nameText = "deep"
+        let outcome = FileSearchService.search(in: root, query: query)
+        // Both the folder named "deep" and deep.log inside it match.
+        XCTAssertEqual(Set(outcome.matches.map(\.url.lastPathComponent)), ["deep", "deep.log"])
+        XCTAssertFalse(outcome.truncated)
+    }
+
+    func testContentSearchFindsSnippetAndSkipsHidden() async throws {
+        let root = try makeTree()
+        defer { try? FileManager.default.removeItem(at: root) }
+        var query = FileSearchService.Query()
+        query.contentText = "hello"
+        let outcome = FileSearchService.search(in: root, query: query)
+        let names = Set(outcome.matches.map(\.url.lastPathComponent))
+        XCTAssertEqual(names, ["notes.txt", "deep.log"])
+        let notes = try XCTUnwrap(outcome.matches.first { $0.url.lastPathComponent == "notes.txt" })
+        XCTAssertEqual(notes.snippet, "hello world")
+
+        query.includeHidden = true
+        let withHidden = FileSearchService.search(in: root, query: query)
+        XCTAssertTrue(Set(withHidden.matches.map(\.url.lastPathComponent)).contains(".secret.txt"))
+    }
+
+    func testResultCapTruncates() async throws {
+        let root = try makeTree()
+        defer { try? FileManager.default.removeItem(at: root) }
+        var query = FileSearchService.Query()
+        query.contentText = "hello"
+        query.maxResults = 1
+        let outcome = FileSearchService.search(in: root, query: query)
+        XCTAssertEqual(outcome.matches.count, 1)
+        XCTAssertTrue(outcome.truncated)
+    }
+}

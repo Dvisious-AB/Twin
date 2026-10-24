@@ -102,11 +102,11 @@ P2 = nisch, byggs vid efterfrågan.
 | TC-funktion | TC | Twin | Status | Prio |
 |---|---|---|---|---|
 | Snabbsök i listan | Ctrl+S / bokstäver | Cmd+F filterfält per panel med träffmarkering | ✅ | |
-| Hitta filer rekursivt | Alt+F7 | — | ❌ | P0 |
-| Sök text i filer | Alt+F7-flik | — | ❌ | P0 |
+| Hitta filer rekursivt | Alt+F7 | Cmd+Shift+F Find Files, namn under aktiv panel | ✅ | |
+| Sök text i filer | Alt+F7-flik | Fältet Text in files (textfiler, inkl. träffrad) | ✅ | |
 | Sök med datum/storlek/attribut | Alt+F7-flikar | — | ❌ | P1 |
 | Hitta dubbletter | Alt+F7 (duplicates) | Mappinsikter varnar för stora/gamla filer, ej dubbletter | 🟡 | P1 |
-| Sökresultat som lista ("Feed to listbox") | i sökdialogen | — | ❌ | P0 |
+| Sökresultat som lista ("Feed to listbox") | i sökdialogen | Resultatlista: Show in Pane / Open / dubbelklick | ✅ | |
 | Sparade sökningar | Alt+F7 (Load/Save) | — | ❌ | P2 |
 | Sök inuti arkiv (Officiell lista) | Alt+F7 i arkiv | — (kräver arkivsom-mapp först) | ❌ | P2 |
 
@@ -205,8 +205,9 @@ Beta av i den här ordningen — varje punkt är en egen leverans med
 tester innan nästa börjar:
 
 **P0 — TC-kärnans förväntningar**
-1. Rekursiv sökning (Alt+F7-motsvarighet): namn, textinnehåll, resultat
-   som lista man kan agera på. Största enskilda luckan.
+1. ~~Rekursiv sökning~~ KLART 2026-10-24: Cmd+Shift+F Find Files —
+   namn + textinnehåll, resultatlista med Show in Pane/Open
+   (`FileSearchService`, UI-test `testFindFilesRecursiveSearch`).
 2. Kommandorad längst ner som på TC-bilden: kör kommando i aktiv mapp,
    historik med Alt+F8-beteende, utdata synlig.
 3. Öppna arkiv som mappar (zip först, sedan tar/7z via formatstöd),

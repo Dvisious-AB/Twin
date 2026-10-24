@@ -60,6 +60,8 @@ struct TwinApp: App {
                 Button("Batch Rename…") { menuBridge.batchRename() }
                     .disabled(!menuBridge.hasSelection)
                 Divider()
+                Button("Find Files…") { menuBridge.findFiles() }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
                 Button("Assistant…") { menuBridge.assistant() }
                 Button("Permissions…") { menuBridge.permissions() }
                     .keyboardShortcut("i", modifiers: .command)

@@ -353,6 +353,28 @@ final class PaneViewModel: ObservableObject {
 
     @Published var viewingURL: URL?
 
+    /// Opens a search result (Find Files): folders navigate,
+    /// files honour the configured editor/open override.
+    func openResult(_ url: URL) {
+        let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+        if isDirectory {
+            navigate(to: url)
+        } else {
+            run(resolved: FileHandlerStore.shared.open(for: url), for: url)
+        }
+    }
+
+    /// Reveals a search result: navigate to its folder and select it.
+    func revealResult(_ url: URL) {
+        let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+        if isDirectory {
+            navigate(to: url)
+        } else {
+            navigate(to: url.deletingLastPathComponent())
+            selection = [url]
+        }
+    }
+
     /// F3 — View: built-in viewer for known types, otherwise the
     /// configured handler / Quick Look via the system default.
     func viewSelected() {

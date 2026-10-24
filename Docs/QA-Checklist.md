@@ -54,6 +54,14 @@ testerna körde bara i läsbara mappar. Kontrollera varje release:
 - [ ] Manuellt: egen kommando-handler (t.ex. xxd {file}) körs från
       Open With utan fel i statusraden
 
+## Rekursiv sökning (2026-10-24)
+
+- [x] Cmd+Shift+F Find Files: namn + text i filer, rekursivt under
+      aktiv panel, resultat med Show in Pane/Open —
+      `testFindFilesRecursiveSearch`, enhetstester i TwinCore
+- [ ] Manuellt: sök i en stor riktig mapp (10k+ filer) och avbryt
+      med Stop mitt i — appen ska svara direkt
+
 ## Kvar före submit
 
 - [x] `Scripts/archive.sh --unsigned` — `ARCHIVE SUCCEEDED` lokalt. Signerad arkivering + hardened runtime kräver aktivt Apple Developer-konto (#7)

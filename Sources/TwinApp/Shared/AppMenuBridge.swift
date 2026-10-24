@@ -31,6 +31,7 @@ final class AppMenuBridge: ObservableObject {
     var folderSync: () -> Void = {}
     var batchRename: () -> Void = {}
     var focusFilter: () -> Void = {}
+    var findFiles: () -> Void = {}
     var setListView: () -> Void = {}
     var setIconView: () -> Void = {}
     var newTab: () -> Void = {}
