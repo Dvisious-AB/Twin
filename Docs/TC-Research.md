@@ -2,7 +2,9 @@
 
 Undersökt 2026-10-24 (ersätter den avgränsade versionen från 2026-10-23).
 Källor för TC: Ghisler FAQ (ghisler.com/efaquser.htm), TC-forum
-(ghisler.ch/board), DefKey:s genvägslista (defkey.com/total-commander-shortcuts),
+(ghisler.ch/board), Ghislers officiella feature list
+(ghisler.com/featurel.htm — avstämd 2026-10-24, se markeringar
+"Officiell lista" nedan), DefKey:s genvägslista (defkey.com/total-commander-shortcuts),
 skärmbild av TC 7.0 från ProductOwner. §10 bygger på ProductOwners
 skärmbild av EF Commander samma dag.
 Källor för Twin: kodinventering av `Sources/TwinApp`, `Sources/TwinCore`,
@@ -43,6 +45,8 @@ P2 = nisch, byggs vid efterfrågan.
 | Överskrivningsdialog (jämför, döp om, hoppa) | vid konflikt | Hoppar över befintliga + rapporterar i statusrad | 🟡 | P1 |
 | Dela/kombinera filer | Files-menyn | — | ❌ | P2 |
 | Skriv ut fillista | Files-menyn | — | ❌ | P2 |
+| Packa stora arkiv i bakgrunden (Officiell lista) | automatiskt | Packning är synkron i dag | 🟡 | P1 |
+| Dra och släpp mot skrivbord/Finder (Officiell lista) | Explorer | Panel↔panel + Finder fungerar; Option-drag saknar musbevis (#12) | 🟡 | P0 |
 
 ## 2. Navigation och paneler
 
@@ -77,6 +81,8 @@ P2 = nisch, byggs vid efterfrågan.
 | Färgregler per filtyp | Configuration | Bara git-badges färgas | ❌ | P2 |
 | Snabbvy i andra panelen | Ctrl+Q | Quick Look-fönster (Space) i stället | 🟡 | P2 |
 | Visa dolda filer | cm_SwitchHidSys | Ingen växling (dolda filtreras i listningen) | ❌ | P0 |
+| HTML-vy i Lister (Officiell lista) | Lister | .html visas som kod, ingen renderad vy | ❌ | P2 |
+| Visa filer oavsett storlek i Lister (Officiell lista) | Lister | Textvy/editor kapar vid 2 MB (`TextFileService`) | 🟡 | P1 |
 
 ## 4. Markering och urval
 
@@ -88,6 +94,7 @@ P2 = nisch, byggs vid efterfrågan.
 | Markera allt/avmarkera allt | Ctrl+A / Numpad − | Systemets val i listan | 🟡 | P1 |
 | Invertera markering | Numpad * | — | ❌ | P2 |
 | Jämför markering mellan paneler | Shift+F2 (Compare dirs) | — | ❌ | P1 |
+| Återställ markering efter operation (Officiell lista) | NUM / | — | ❌ | P2 |
 | Markerade räknas i statusraden | alltid | Ja, antal + storlek för markeringen | ✅ | |
 
 ## 5. Sök
@@ -101,6 +108,7 @@ P2 = nisch, byggs vid efterfrågan.
 | Hitta dubbletter | Alt+F7 (duplicates) | Mappinsikter varnar för stora/gamla filer, ej dubbletter | 🟡 | P1 |
 | Sökresultat som lista ("Feed to listbox") | i sökdialogen | — | ❌ | P0 |
 | Sparade sökningar | Alt+F7 (Load/Save) | — | ❌ | P2 |
+| Sök inuti arkiv (Officiell lista) | Alt+F7 i arkiv | — (kräver arkivsom-mapp först) | ❌ | P2 |
 
 ## 6. Verktyg i TC:s menyer
 
@@ -119,6 +127,12 @@ P2 = nisch, byggs vid efterfrågan.
 | FTP/FTPS-panel | Ctrl+F | — | ❌ | P1 |
 | SFTP/WebDAV (plugins) | plugin | — | ❌ | P2 |
 | Windows-registret, .lnk, ADS | plugin/Windows | Ingen macOS-motsvarighet | 🚫 | |
+| Egna kommandon i knapp-/funktionsrad (Officiell lista) | konfigurerbar | Filtypsguidens handlers täcker per filtyp, inte globala kommandon | 🟡 | P2 |
+| Konfigurerbar huvudmeny (Officiell lista) | konfigurerbar | Fasta TC-menyer | 🚫 | |
+| Encode/Decode UUE/XXE/MIME (Officiell lista) | Files | — | ❌ | P2 |
+| Synkronisera mapp mot ZIP-fil (Officiell lista) | Commands | Folder Sync är mapp↔mapp | ❌ | P2 |
+| Kopiera arkiv → arkiv direkt (Officiell lista) | arkivvy | — (kräver arkiv som mappar) | ❌ | P2 |
+| Språk i gränssnittet (Officiell lista: bl.a. svenska) | 20+ språk | Endast engelska i UI:t i dag | ❌ | P1 |
 
 ## 7. Lister (F3) och plugins
 
@@ -216,14 +230,22 @@ tester innan nästa börjar:
     virtuell panel man kan kopiera från — naturlig fortsättning på 1.
 17. Only selected files (från EF Commander): filterläge som visar
     bara markeringen i aktiv panel.
+18. Svensk lokalisering av UI:t (Officiell lista har svenska; Twin
+    säljs i SEK på svenska App Store men talar bara engelska).
+19. Strömmande visning av stora textfiler i viewern — Listers
+    "oavsett storlek" i stället för 2 MB-taket för visning
+    (editorn behåller sin gräns).
 
 **P2 — vid efterfrågan**
-18. Egna kolumner och färgregler per filtyp.
-19. Dela/kombinera filer, skriv ut fillista, sparade sökningar.
-20. SFTP/WebDAV, låsta flikar, historiklista (Alt+↓) som meny.
-21. Synkroniserad navigering/scrollning mellan panelerna och
+20. Egna kolumner och färgregler per filtyp.
+21. Dela/kombinera filer, skriv ut fillista, sparade sökningar.
+22. SFTP/WebDAV, låsta flikar, historiklista (Alt+↓) som meny.
+23. Synkroniserad navigering/scrollning mellan panelerna och
     växling av panelriktning (Tile) — från EF Commander.
-22. Binärt plugin-API motsvarande WLX/WCX — först om egna handlers
+24. Renderad HTML-vy i viewern, återställ markering (NUM /),
+    encode/decode (UUE/XXE/MIME), synk mapp↔ZIP, arkiv→arkiv —
+    samtliga från Ghislers officiella lista.
+25. Binärt plugin-API motsvarande WLX/WCX — först om egna handlers
     i guiden visar sig otillräckliga.
 
 **Medvetna avståenden (🚫)**
