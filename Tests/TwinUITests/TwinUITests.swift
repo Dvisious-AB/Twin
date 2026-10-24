@@ -62,14 +62,14 @@ final class TwinUITests: XCTestCase {
         // assertion stays the same: arrows alone move the selection.
         let before = try XCTUnwrap(selectedIndex())
         var afterDown = before
-        for _ in 0..<10, afterDown == before {
+        for _ in 0..<10 where afterDown == before {
             app.typeKey(XCUIKeyboardKey.downArrow, modifierFlags: [])
             Thread.sleep(forTimeInterval: 0.5)
             afterDown = selectedIndex() ?? before
         }
         XCTAssertGreaterThan(afterDown, before)
         var afterUp = afterDown
-        for _ in 0..<10, afterUp == afterDown {
+        for _ in 0..<10 where afterUp == afterDown {
             app.typeKey(XCUIKeyboardKey.upArrow, modifierFlags: [])
             Thread.sleep(forTimeInterval: 0.5)
             afterUp = selectedIndex() ?? afterDown
