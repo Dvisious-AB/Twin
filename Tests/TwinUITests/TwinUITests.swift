@@ -47,6 +47,12 @@ final class TwinUITests: XCTestCase {
     func testArrowKeysMoveSelection() throws {
         let outline = app.outlines.firstMatch
         XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 10))
+        // Make the window key via its title bar — NOT a row click:
+        // the regression pinned below is that arrows were dead until
+        // a *row* was clicked. On cold CI runners the window may not
+        // be key at all, and every synthetic keypress is lost.
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02)).click()
         // Deterministic listing: filesystem root.
         app.typeKey("r", modifierFlags: [.command, .option])
         XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 10))
@@ -54,13 +60,19 @@ final class TwinUITests: XCTestCase {
         func selectedIndex() -> Int? {
             (0..<outline.cells.count).first { outline.cells.element(boundBy: $0).isSelected }
         }
+        // Wait until the pane has preselected a row (listing loaded).
+        var preselected: Int?
+        for _ in 0..<40 where preselected == nil {
+            preselected = selectedIndex()
+            if preselected == nil { Thread.sleep(forTimeInterval: 0.5) }
+        }
         // Movement, not exact steps: XCUITest key events can repeat
         // (holding ↓ scrolls in real use too). The regression being
         // pinned is "arrows do nothing without a prior mouse click".
         // Cold CI runners can drop the first keypress before the
         // window is key, so press until the selection moves — the
         // assertion stays the same: arrows alone move the selection.
-        let before = try XCTUnwrap(selectedIndex())
+        let before = try XCTUnwrap(preselected)
         var afterDown = before
         for _ in 0..<10 where afterDown == before {
             app.typeKey(XCUIKeyboardKey.downArrow, modifierFlags: [])
