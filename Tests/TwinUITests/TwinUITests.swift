@@ -31,13 +31,14 @@ final class TwinUITests: XCTestCase {
     func testTabCreateAndClose() {
         let window = app.windows.firstMatch
         window.click()
-        let tabsBefore = app.buttons.matching(NSPredicate(format: "label == %@", "Data")).count
+        // Count tab chips by accessibility identifier — folder-name
+        // labels vary with the restored session.
+        let tabChips = app.buttons.matching(identifier: "paneTab")
+        let tabsBefore = tabChips.count
         app.typeKey("t", modifierFlags: .command)
-        let tabsAfter = app.buttons.matching(NSPredicate(format: "label == %@", "Data")).count
-        XCTAssertGreaterThan(tabsAfter, tabsBefore)
+        XCTAssertGreaterThan(tabChips.count, tabsBefore)
         app.typeKey("w", modifierFlags: .command)
-        let tabsClosed = app.buttons.matching(NSPredicate(format: "label == %@", "Data")).count
-        XCTAssertEqual(tabsClosed, tabsBefore)
+        XCTAssertEqual(tabChips.count, tabsBefore)
     }
 
     // Keyboard-first: click a row, Enter opens it, Delete (backspace) goes up.
@@ -89,7 +90,10 @@ final class TwinUITests: XCTestCase {
         }
         let moreButton = try XCTUnwrap(more, "More menu button not found in function bar")
         moreButton.click()
-        let assistant = app.menuItems["Assistant…"]
+        // "Assistant…" also exists in the Commands menu bar menu, so
+        // match within the just-opened function-bar menu, first match.
+        let assistant = app.menuItems
+            .matching(NSPredicate(format: "title == 'Assistant…'")).firstMatch
         XCTAssertTrue(assistant.waitForExistence(timeout: 60))
         assistant.click()
         let field = app.textFields.firstMatch

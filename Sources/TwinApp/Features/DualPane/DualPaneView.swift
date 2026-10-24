@@ -9,8 +9,11 @@ struct DualPaneView: View {
 
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        _leftTabs = StateObject(wrappedValue: PaneTabs(first: home))
-        _rightTabs = StateObject(wrappedValue: PaneTabs(first: home.appendingPathComponent("Documents")))
+        _leftTabs = StateObject(wrappedValue: PaneTabs(first: home, storageKey: "twin.session.left"))
+        _rightTabs = StateObject(wrappedValue: PaneTabs(
+            first: home.appendingPathComponent("Documents"), storageKey: "twin.session.right"
+        ))
+        _selected = State(initialValue: UserDefaults.standard.integer(forKey: "twin.session.activeSide"))
     }
 
     private var left: PaneViewModel { leftTabs.active }
@@ -139,6 +142,9 @@ struct DualPaneView: View {
             }
             .help("More actions")
         }
+        // Docked full-width bar: folder pair pinned left, actions
+        // pinned right via the Spacer — also in fullscreen.
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(Color(nsColor: .controlBackgroundColor))
@@ -170,6 +176,7 @@ struct DualPaneView: View {
                                 tabs.select(at: index)
                                 selected = side
                             }
+                            .accessibilityIdentifier("paneTab")
                             .buttonStyle(.borderless)
                             .font(.caption)
                             .lineLimit(1)
@@ -249,6 +256,42 @@ struct DualPaneView: View {
     private var activePane: PaneViewModel { selected == 0 ? left : right }
     private var inactivePane: PaneViewModel { selected == 0 ? right : left }
 
+    /// Publishes the active pane's actions to the TC-style menu bar.
+    private func syncMenuBridge() {
+        let bridge = AppMenuBridge.shared
+        bridge.hasSelection = !activePane.selection.isEmpty
+        bridge.singleSelection = activePane.selection.count == 1
+        bridge.archiveSelected = activePane.selectedIsArchive
+        bridge.canCloseTab = activeTabs.tabs.count > 1
+        bridge.proUnlocked = store.isProUnlocked
+        bridge.copy = { activePane.startCopy(to: inactivePane.currentURL) }
+        bridge.move = { activePane.startMove(to: inactivePane.currentURL) }
+        bridge.edit = { activePane.editSelected() }
+        bridge.pack = { activePane.compressSelected() }
+        bridge.unpack = { activePane.unpackSelected() }
+        bridge.md5 = { activePane.createMD5ForSelected() }
+        bridge.encrypt = { showEncryptPrompt = true }
+        bridge.newFolder = { newName = "New Folder"; showNewFolder = true }
+        bridge.rename = {
+            newName = activePane.selection.first?.lastPathComponent ?? ""
+            showRename = true
+        }
+        bridge.delete = { showDeleteConfirm = true }
+        bridge.permissions = { showPermissions = true }
+        bridge.assistant = { showAssistant = true }
+        bridge.folderSync = {
+            if store.isProUnlocked { showFolderSync = true } else { showPaywall = true }
+        }
+        bridge.batchRename = {
+            if store.isProUnlocked { showBatchRename = true } else { showPaywall = true }
+        }
+        bridge.focusFilter = { activePane.focusSearch() }
+        bridge.setListView = { activePane.viewMode = .list }
+        bridge.setIconView = { activePane.viewMode = .icon }
+        bridge.newTab = { activeTabs.newTab() }
+        bridge.closeTab = { activeTabs.closeActive() }
+    }
+
     /// Real Total Commander function keys (F4/F5/F6/F7/F8). SwiftUI has
     /// no F-key equivalents, so an AppKit key monitor handles them —
     /// the button labels promised F5/F6 (UX review 2026-10-23, P0-3).
@@ -289,6 +332,13 @@ struct DualPaneView: View {
             functionBar
         }
         .background(FunctionKeyHandler { handleFunctionKey($0) })
+        .onAppear { syncMenuBridge() }
+        .onChange(of: selected) { _, side in
+            UserDefaults.standard.set(side, forKey: "twin.session.activeSide")
+            syncMenuBridge()
+        }
+        .onChange(of: activePane.selection) { _, _ in syncMenuBridge() }
+        .onChange(of: activePane.currentURL) { _, _ in syncMenuBridge() }
         .sheet(isPresented: $showPaywall) { PaywallView() }
         .sheet(isPresented: $showPermissions) {
             if let url = activePane.selection.first {
