@@ -8,6 +8,9 @@ struct TwinApp: App {
     init() {
         // FileSystemEngineer: resolve persisted security-scoped bookmarks at start.
         _ = TwinCore.restoreBookmarkedAccess()
+        DebugLog.shared.info("app.launch", "Twin started", context: [
+            "logFile": DebugLog.shared.fileURL.path
+        ])
     }
 
     var body: some Scene {

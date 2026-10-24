@@ -546,3 +546,46 @@ final class FileSearchServiceTests: XCTestCase {
         XCTAssertTrue(outcome.truncated)
     }
 }
+
+final class DebugLogTests: XCTestCase {
+    func testLogWritesFileAndDump() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinLog-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = DebugLog(directory: dir)
+        log.info("navigation", "opened folder", context: ["path": "/tmp/x"])
+        log.error("pane.load", "load failed",
+                  error: NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError),
+                  path: "/private/secret")
+        log.flush()
+
+        let entries = log.entries()
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[1].context["code"], "\(NSFileReadNoPermissionError)")
+        XCTAssertEqual(entries[1].context["path"], "/private/secret")
+        let dump = log.textDump()
+        XCTAssertTrue(dump.contains("pane.load"))
+        let fileText = try String(contentsOf: log.fileURL, encoding: .utf8)
+        XCTAssertEqual(fileText.split(separator: "\n").count, 2)
+
+        log.clear()
+        log.flush()
+        XCTAssertTrue(log.entries().isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: log.fileURL.path))
+    }
+
+    func testRotationKeepsTail() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinLog-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = DebugLog(directory: dir, maxBytes: 600)
+        for index in 0..<40 {
+            log.info("bulk", "entry number \(index) with some padding text to fill the file")
+        }
+        log.flush()
+        let size = try FileManager.default.attributesOfItem(atPath: log.fileURL.path)[.size] as? Int ?? 0
+        XCTAssertLessThanOrEqual(size, 700)
+        let text = try String(contentsOf: log.fileURL, encoding: .utf8)
+        XCTAssertTrue(text.contains("entry number 39"))
+    }
+}

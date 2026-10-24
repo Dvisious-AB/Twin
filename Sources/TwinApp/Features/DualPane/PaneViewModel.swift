@@ -89,6 +89,10 @@ final class PaneViewModel: ObservableObject {
         // Resolve persisted bookmark at start (FileSystemEngineer requirement).
         let resolved = bookmarkStore.resolveBookmark(for: initialPath) ?? initialPath
         self.currentURL = resolved
+        DebugLog.shared.info("pane.init", "pane created", context: [
+            "path": resolved.path,
+            "bookmarkResolved": bookmarkStore.resolveBookmark(for: initialPath) != nil ? "yes" : "no"
+        ])
         _ = bookmarkStore.startAccessing(resolved)
         refresh()
         filesChangedObserver = NotificationCenter.default.addObserver(
@@ -163,6 +167,10 @@ final class PaneViewModel: ObservableObject {
         } catch {
             items = []
             loadState = DirectoryLoadState.classify(error: error, for: currentURL)
+            DebugLog.shared.error("pane.load", "refresh failed", error: error, path: currentURL.path)
+            DebugLog.shared.log(.error, "pane.load", "classified state", context: [
+                "path": currentURL.path, "state": "\(loadState)"
+            ])
             return
         }
         items = contents.compactMap { url in
@@ -283,6 +291,9 @@ final class PaneViewModel: ObservableObject {
     }
 
     private func navigate(to url: URL, recordHistory: Bool) {
+        DebugLog.shared.info("pane.navigate", "navigate", context: [
+            "from": currentURL.path, "to": url.path
+        ])
         // Persist a security-scoped bookmark for the folder we enter,
         // and start accessing it so the sandbox keeps access across launches.
         if recordHistory, url != currentURL {
@@ -298,7 +309,12 @@ final class PaneViewModel: ObservableObject {
 
     /// Alt+Left in Total Commander: previous folder in history.
     func goBack() {
-        guard let previous = backHistory.popLast() else { return }
+        guard let previous = backHistory.popLast() else {
+            DebugLog.shared.log(.warning, "pane.navigate", "goBack with empty history", context: [
+                "path": currentURL.path
+            ])
+            return
+        }
         forwardHistory.append(currentURL)
         navigate(to: previous, recordHistory: false)
     }
@@ -318,7 +334,12 @@ final class PaneViewModel: ObservableObject {
     func goUp() {
         let child = currentURL
         let parent = currentURL.deletingLastPathComponent()
-        guard parent.path != currentURL.path else { return }
+        guard parent.path != currentURL.path else {
+            DebugLog.shared.log(.warning, "pane.navigate", "goUp at root (no-op)", context: [
+                "path": currentURL.path
+            ])
+            return
+        }
         navigate(to: parent)
         // Total Commander places the cursor on the folder you came from.
         if items.contains(where: { $0.url == child }) {
@@ -582,6 +603,7 @@ final class PaneViewModel: ObservableObject {
             }
         } catch {
             lastOperationSummary = error.localizedDescription
+            DebugLog.shared.error("fileops.encrypt", "encrypt/decrypt failed", error: error, path: url.path)
         }
         refresh()
     }

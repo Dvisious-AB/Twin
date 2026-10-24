@@ -41,6 +41,7 @@ struct DualPaneView: View {
     @State private var showAssistant = false
     @State private var showHandlersGuide = false
     @State private var showFileSearch = false
+    @State private var showDebugLog = false
     @State private var showFirstRunGrant = false
     @State private var showNewFolder = false
     @State private var showRename = false
@@ -159,6 +160,7 @@ struct DualPaneView: View {
                 Button("Find Files…") { showFileSearch = true }
                 Button("File Type Handlers…") { showHandlersGuide = true }
                 Button("Assistant…") { showAssistant = true }
+                Button("Debug Log…") { showDebugLog = true }
             }
             .help("More actions")
         }
@@ -288,7 +290,11 @@ struct DualPaneView: View {
         panel.prompt = "Grant Access"
         panel.message = "Grant Twin access to \(pane.currentURL.lastPathComponent) to read it again."
         panel.directoryURL = pane.currentURL
-        if panel.runModal() == .OK, let url = panel.url {
+        let result = panel.runModal()
+        DebugLog.shared.info("recovery.grantAccess", "grant access dialog closed", context: [
+            "path": pane.currentURL.path, "result": result == .OK ? "OK" : "cancel"
+        ])
+        if result == .OK, let url = panel.url {
             pane.navigate(to: url)
         }
     }
@@ -445,6 +451,9 @@ struct DualPaneView: View {
         }
         .sheet(isPresented: $showHandlersGuide) {
             FileHandlersSettingsView()
+        }
+        .sheet(isPresented: $showDebugLog) {
+            DebugLogView()
         }
         .sheet(isPresented: $showFileSearch) {
             FileSearchView(
