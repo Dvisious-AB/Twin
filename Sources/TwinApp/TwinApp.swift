@@ -32,6 +32,9 @@ struct TwinApp: App {
                     .keyboardShortcut("e", modifiers: [.command, .shift])
                     .disabled(!menuBridge.hasSelection)
                 Divider()
+                Button("View (F3)") { menuBridge.view() }
+                    .disabled(!menuBridge.hasSelection)
+                Button("File Type Handlers…") { menuBridge.handlersGuide() }
                 Button("Edit") { menuBridge.edit() }
                     .keyboardShortcut("e", modifiers: .command)
                     .disabled(!menuBridge.hasSelection)

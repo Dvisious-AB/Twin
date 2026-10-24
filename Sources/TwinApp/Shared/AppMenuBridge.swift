@@ -16,6 +16,8 @@ final class AppMenuBridge: ObservableObject {
 
     var copy: () -> Void = {}
     var move: () -> Void = {}
+    var view: () -> Void = {}
+    var handlersGuide: () -> Void = {}
     var edit: () -> Void = {}
     var pack: () -> Void = {}
     var unpack: () -> Void = {}

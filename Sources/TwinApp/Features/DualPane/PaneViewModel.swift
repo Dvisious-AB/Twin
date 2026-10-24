@@ -345,7 +345,61 @@ final class PaneViewModel: ObservableObject {
         if item.isDirectory {
             navigate(to: item.url)
         } else {
-            NSWorkspace.shared.open(item.url)
+            // Enter/double-click: a configured editor choice
+            // overrides the macOS default inside Twin.
+            run(resolved: FileHandlerStore.shared.open(for: item.url), for: item.url)
+        }
+    }
+
+    @Published var viewingURL: URL?
+
+    /// F3 — View: built-in viewer for known types, otherwise the
+    /// configured handler / Quick Look via the system default.
+    func viewSelected() {
+        guard let url = firstSelectedFileURL else { return }
+        run(resolved: FileHandlerStore.shared.viewer(for: url), for: url)
+    }
+
+    /// Explicit Open With from the context menu.
+    func openWith(_ choice: HandlerChoice, for url: URL) {
+        switch choice {
+        case .twinViewer: viewingURL = url
+        case .twinEditor: editingURL = url
+        case .externalApp(let path, let name):
+            lastOperationSummary = FileLauncher.open(url, withAppAt: path)
+                ?? "Opened in \(name)"
+        case .customHandler(let id):
+            if let handler = FileHandlerStore.shared.customHandler(id: id) {
+                lastOperationSummary = FileLauncher.run(custom: handler, for: url)
+                    ?? "Opened with \(handler.name)"
+            }
+        case .systemDefault:
+            NSWorkspace.shared.open(url)
+        }
+        refresh()
+    }
+
+    var firstSelectedFileURL: URL? {
+        guard let url = selection.sorted(by: { $0.path < $1.path }).first,
+              (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false
+        else { return nil }
+        return url
+    }
+
+    /// Runs a resolved handler: sheets for Twin's own viewer/editor,
+    /// FileLauncher for external/custom, Quick Look for view-intent
+    /// system default, NSWorkspace otherwise.
+    private func run(resolved: FileHandlerStore.Resolved, for url: URL) {
+        switch resolved {
+        case .twinViewer:
+            viewingURL = url
+        case .twinEditor:
+            editingURL = url
+        case .externalApp, .custom:
+            lastOperationSummary = FileLauncher.launch(resolved, for: url) ?? lastOperationSummary
+            refresh()
+        case .systemDefault:
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -478,12 +532,20 @@ final class PaneViewModel: ObservableObject {
         refresh()
     }
 
-    /// Opens the built-in editor for the first selected regular file.
+    /// F4 — Edit: the configured editor for this file type wins
+    /// (Twin Editor for text-like files by default, an external
+    /// app or custom handler when the guide says so).
     func editSelected() {
-        guard let url = selection.sorted(by: { $0.path < $1.path }).first,
-              let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey]),
-              values.isDirectory == false, (values.fileSize ?? 0) < 2_000_000 else { return }
-        editingURL = url
+        guard let url = firstSelectedFileURL else { return }
+        let resolved = FileHandlerStore.shared.editor(for: url)
+        if resolved == .twinEditor {
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+            guard size < 2_000_000 else {
+                lastOperationSummary = "Too large for the built-in editor — use Open With."
+                return
+            }
+        }
+        run(resolved: resolved, for: url)
     }
 
     func encryptSelected(passphrase: String) {

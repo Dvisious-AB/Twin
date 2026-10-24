@@ -39,6 +39,7 @@ struct DualPaneView: View {
     @State private var passphrase = ""
     @State private var showPermissions = false
     @State private var showAssistant = false
+    @State private var showHandlersGuide = false
     @State private var showFirstRunGrant = false
     @State private var showNewFolder = false
     @State private var showRename = false
@@ -93,6 +94,9 @@ struct DualPaneView: View {
             .keyboardShortcut("6", modifiers: .command)
             .disabled(activePane.selection.isEmpty)
             Divider().frame(height: 16)
+            Button("F3 View") { activePane.viewSelected() }
+                .disabled(activePane.selection.isEmpty)
+                .help("View selected file in Twin Viewer (F3)")
             Button("Edit") { activePane.editSelected() }
                 .keyboardShortcut("e", modifiers: .command)
                 .disabled(activePane.selection.isEmpty)
@@ -151,6 +155,7 @@ struct DualPaneView: View {
                 Divider()
                 Button("Permissions…") { showPermissions = true }
                     .disabled(activePane.selection.count != 1)
+                Button("File Type Handlers…") { showHandlersGuide = true }
                 Button("Assistant…") { showAssistant = true }
             }
             .help("More actions")
@@ -170,7 +175,9 @@ struct DualPaneView: View {
                 viewModel: tabs.active, isActive: selected == side,
                 onRequestPaneSwitch: { switchPane() },
                 onChooseFolder: { chooseFolder(for: tabs.active) },
-                onActivate: { selected = side; paneFocus = side }
+                onActivate: { selected = side; paneFocus = side },
+                onGrantAccess: { grantAccess(for: tabs.active) },
+                onConfigureHandlers: { showHandlersGuide = true }
             )
             .id(ObjectIdentifier(tabs.active))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -268,6 +275,22 @@ struct DualPaneView: View {
         }
     }
 
+    /// Re-grants access to the folder a pane is failing to read
+    /// (error-state recovery): picker starts at that exact folder;
+    /// choosing it saves the bookmark and reloads.
+    private func grantAccess(for pane: PaneViewModel) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Grant Access"
+        panel.message = "Grant Twin access to \(pane.currentURL.lastPathComponent) to read it again."
+        panel.directoryURL = pane.currentURL
+        if panel.runModal() == .OK, let url = panel.url {
+            pane.navigate(to: url)
+        }
+    }
+
     /// Navigates to a known place, asking for access first when the
     /// sandbox cannot read it yet (bookmark grant via open panel).
     private func navigateOrGrant(to url: URL, for pane: PaneViewModel) {
@@ -318,6 +341,8 @@ struct DualPaneView: View {
         bridge.proUnlocked = store.isProUnlocked
         bridge.copy = { activePane.startCopy(to: inactivePane.currentURL) }
         bridge.move = { activePane.startMove(to: inactivePane.currentURL) }
+        bridge.view = { activePane.viewSelected() }
+        bridge.handlersGuide = { showHandlersGuide = true }
         bridge.edit = { activePane.editSelected() }
         bridge.pack = { activePane.compressSelected() }
         bridge.unpack = { activePane.unpackSelected() }
@@ -359,6 +384,9 @@ struct DualPaneView: View {
     /// Returns true when the key was consumed.
     private func handleFunctionKey(_ keyCode: UInt16) -> Bool {
         switch keyCode {
+        case 99: // F3
+            guard !activePane.selection.isEmpty else { return false }
+            activePane.viewSelected()
         case 118: // F4
             guard !activePane.selection.isEmpty else { return false }
             activePane.editSelected()
@@ -411,6 +439,9 @@ struct DualPaneView: View {
         }
         .sheet(isPresented: $showAssistant) {
             AssistantView(viewModel: activePane)
+        }
+        .sheet(isPresented: $showHandlersGuide) {
+            FileHandlersSettingsView()
         }
         .sheet(isPresented: $showFirstRunGrant) {
             VStack(spacing: 14) {

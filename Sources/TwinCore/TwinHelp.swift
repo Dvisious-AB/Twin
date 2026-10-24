@@ -87,6 +87,14 @@ public enum TwinHelp {
         HelpTopic(keywords: ["edit", "rediger", "text", "editor", "anteckn"],
                   answer: "Select a text file and press Cmd+E to open Twin's built-in editor. Cmd+S saves back to the same file." +
                       "Files over 2 MB or non-UTF-8 files can't be edited this way."),
+        HelpTopic(keywords: ["view", "visa", "viewer", "f3", "förhandsvisa", "öppna med", "open with",
+                              "filtyp", "file type", "standardapp", "default app", "extern editor", "egen editor"],
+                  answer: "F3 opens Twin's built-in viewer (text/code with line numbers, Markdown rendered, images, PDF, " +
+                      "media, hex for binary files). To connect a file type to another viewer or editor: right-click a file " +
+                      "▸ Open With ▸ Koppla filtyp… (guide), or Files ▸ File Type Handlers…. There you pick per extension " +
+                      "what F3 shows and what F4/Enter opens — Twin Viewer/Editor, an external app, your own handler " +
+                      "(an app or a command like /usr/local/bin/tool {file}), or the macOS default. Setting an editor " +
+                      "overrides the macOS default inside Twin."),
         HelpTopic(keywords: ["size", "storlek", "mappstorlek", "utrymme", "disk"],
                   answer: "Folder sizes are calculated automatically in the background and cached — watch the Size column fill in" +
                       "(… means still counting), then click Size to sort by it. The status bar shows free space on the volume."),

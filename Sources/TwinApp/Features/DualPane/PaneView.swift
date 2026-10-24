@@ -12,6 +12,10 @@ struct PaneView: View {
     /// clicked/keyboard-used pane becomes the active one. The container
     /// tap gesture in DualPaneView is not enough: Table consumes row taps.
     var onActivate: () -> Void = {}
+    /// Re-grant access to the folder the pane cannot read (error state).
+    var onGrantAccess: () -> Void = {}
+    /// Opens the file-type handler guide (viewers/editors per type).
+    var onConfigureHandlers: () -> Void = {}
     @FocusState var listFocused: Bool
 
     private let iconColumns = [
@@ -130,6 +134,17 @@ struct PaneView: View {
                 TextEditorView(url: url) { viewModel.refresh() }
             }
         }
+        .sheet(isPresented: Binding(
+            get: { viewModel.viewingURL != nil },
+            set: { if !$0 { viewModel.viewingURL = nil } }
+        )) {
+            if let url = viewModel.viewingURL {
+                FileViewerView(url: url) {
+                    viewModel.viewingURL = nil
+                    viewModel.editingURL = url
+                }
+            }
+        }
         .onDrop(of: [UTType.fileURL], isTargeted: $viewModel.isDropTargeted) { providers in
             Task { @MainActor in
                 _ = await viewModel.handleDrop(providers: providers)
@@ -234,7 +249,20 @@ struct PaneView: View {
                 Text(viewModel.loadState.userMessage)
             } actions: {
                 if viewModel.loadState.isError {
-                    Button("Try Again") { viewModel.refresh() }
+                    // Recovery paths, not a dead end: re-grant this
+                    // folder, pick another, or leave upwards. "Try
+                    // Again" alone can never fix a missing grant.
+                    VStack(spacing: 8) {
+                        Button("Grant Access…") { onGrantAccess() }
+                            .buttonStyle(.borderedProminent)
+                        HStack(spacing: 8) {
+                            Button("Choose Folder…") { onChooseFolder() }
+                            if viewModel.currentURL.path != "/" {
+                                Button("Go Up") { viewModel.goUp() }
+                            }
+                            Button("Try Again") { viewModel.refresh() }
+                        }
+                    }
                 }
             }
         } else {
@@ -372,7 +400,33 @@ struct PaneView: View {
         .onTapGesture(count: 2) { viewModel.openFirstSelected() }
         .contextMenu(forSelectionType: URL.self) { _ in
             Button("Open") { viewModel.openFirstSelected() }
+            Button("View (F3)") { viewModel.viewSelected() }
+            Button("Edit (F4)") { viewModel.editSelected() }
             Button("Quick Look") { viewModel.previewSelected() }
+            if let url = viewModel.firstSelectedFileURL {
+                Menu("Open With") {
+                    Button("Twin Viewer") { viewModel.openWith(.twinViewer, for: url) }
+                    if FileTypeRegistry.kind(for: url).isTextEditable {
+                        Button("Twin Editor") { viewModel.openWith(.twinEditor, for: url) }
+                    }
+                    Divider()
+                    ForEach(FileLauncher.applications(for: url).prefix(6), id: \.path) { app in
+                        Button(FileLauncher.appName(for: app)) {
+                            viewModel.openWith(
+                                .externalApp(path: app.path, name: FileLauncher.appName(for: app)),
+                                for: url)
+                        }
+                    }
+                    ForEach(FileHandlerStore.shared.customHandlers) { handler in
+                        Button("Egen: \(handler.name)") {
+                            viewModel.openWith(.customHandler(id: handler.id), for: url)
+                        }
+                    }
+                    Divider()
+                    Button("macOS Standardapp") { viewModel.openWith(.systemDefault, for: url) }
+                    Button("Koppla filtyp… (guide)") { onConfigureHandlers() }
+                }
+            }
             Button("Show in Finder") {
                 if let url = viewModel.selection.first { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             }

@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 /// E2E tests for Twin — XCUITest is the Playwright equivalent for native
@@ -134,5 +135,52 @@ final class TwinUITests: XCTestCase {
             }
             XCTFail("Assistant answer with Cmd+Shift+E not found")
         }
+    }
+}
+
+extension TwinUITests {
+    // F3 viewer: a Markdown fixture in the home folder opens in the
+    // built-in viewer (name + Edit affordance prove the sheet).
+    func testF3OpensBuiltinViewer() throws {
+        // Fixture in the test runner's tmp dir (the runner is
+        // sandboxed and can't write shared folders), delivered to
+        // Twin through its own twin://open?path= deep link — the
+        // same public path FinderSync's "Open in Twin" uses.
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinViewerFixture")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent("viewme.md")
+        try "# Hello Twin\n\nViewer fixture.\n".write(to: file, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        let encoded = folder.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? folder.path
+        XCTAssertTrue(NSWorkspace.shared.open(URL(string: "twin://open?path=\(encoded)")!))
+        // Table cells carry no AX label; the name is a text inside.
+        let fileText = app.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@", "viewme.md", "viewme.md")).firstMatch
+        XCTAssertTrue(fileText.waitForExistence(timeout: 15))
+        fileText.click()
+        // Restored windows can duplicate the function bar.
+        let f3 = app.buttons["F3 View"].firstMatch
+        XCTAssertTrue(f3.waitForExistence(timeout: 10))
+        f3.click()
+        // The viewer sheet shows the file name and offers Edit (F4 path).
+        let viewerTitle = app.staticTexts.matching(NSPredicate(format: "label == %@ OR value == %@", "viewme.md", "viewme.md")).firstMatch
+        XCTAssertTrue(viewerTitle.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["Edit"].firstMatch.exists)
+        app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+    }
+
+    // The file-type guide opens from the Files menu and shows all steps.
+    func testFileTypeHandlersGuideOpens() {
+        app.menuBars.menuBarItems["Files"].click()
+        let item = app.menuBars.menuItems["File Type Handlers…"]
+        XCTAssertTrue(item.waitForExistence(timeout: 10))
+        item.click()
+        XCTAssertTrue(app.staticTexts["1. Choose a file type"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["2. View (F3) — visar filen"].exists)
+        XCTAssertTrue(app.buttons["Save"].exists)
+        XCTAssertTrue(app.buttons["Add Custom Handler"].exists)
+        app.buttons["Done"].click()
     }
 }

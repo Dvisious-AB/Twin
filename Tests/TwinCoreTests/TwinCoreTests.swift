@@ -428,3 +428,65 @@ final class TwinCoreTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "twin")
     }
 }
+
+final class FileTypeRegistryTests: XCTestCase {
+    func testClassification() {
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "md"), .markdown)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: ".SWIFT"), .code)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "json"), .code)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "png"), .image)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "pdf"), .pdf)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "mp4"), .video)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "zip"), .archive)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "txt"), .text)
+        XCTAssertEqual(FileTypeRegistry.kind(forExtension: "zzzunknown"), .data)
+        XCTAssertEqual(FileTypeRegistry.kind(for: URL(fileURLWithPath: "/a/b/photo.HEIC")), .image)
+    }
+
+    func testDefaultsWithoutAssociation() throws {
+        let suite = "TwinCoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FileHandlerStore(defaults: defaults)
+        let md = URL(fileURLWithPath: "/tmp/notes.md")
+        XCTAssertEqual(store.viewer(for: md), .twinViewer(.markdown))
+        XCTAssertEqual(store.editor(for: md), .twinEditor)
+        // No editor override set: Open still means macOS default.
+        XCTAssertEqual(store.open(for: md), .systemDefault)
+        let png = URL(fileURLWithPath: "/tmp/pic.png")
+        XCTAssertEqual(store.viewer(for: png), .twinViewer(.image))
+        XCTAssertEqual(store.editor(for: png), .systemDefault)
+    }
+
+    func testAssociationOverridesSystemDefault() throws {
+        let suite = "TwinCoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FileHandlerStore(defaults: defaults)
+        store.setAssociation(
+            FileTypeAssociation(editor: .externalApp(path: "/Applications/Zed.app", name: "Zed")),
+            forExtension: "swift")
+        let file = URL(fileURLWithPath: "/tmp/main.swift")
+        XCTAssertEqual(store.editor(for: file), .externalApp(path: "/Applications/Zed.app", name: "Zed"))
+        XCTAssertEqual(store.open(for: file), .externalApp(path: "/Applications/Zed.app", name: "Zed"))
+        // A fresh store over the same defaults sees the persisted choice.
+        let reloaded = FileHandlerStore(defaults: defaults)
+        XCTAssertEqual(reloaded.editor(for: file), .externalApp(path: "/Applications/Zed.app", name: "Zed"))
+    }
+
+    func testCustomHandlerLifecycle() throws {
+        let suite = "TwinCoreTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FileHandlerStore(defaults: defaults)
+        let handler = CustomHandler(
+            name: "My Hex Editor", extensions: ["bin", ".dat"],
+            commandTemplate: "/usr/bin/xxd {file} > /tmp/dump.txt")
+        store.upsertCustomHandler(handler)
+        let bin = URL(fileURLWithPath: "/tmp/firmware.bin")
+        XCTAssertEqual(store.editor(for: bin), .custom(handler))
+        store.removeCustomHandler(id: handler.id)
+        XCTAssertEqual(store.editor(for: bin), .systemDefault)
+        XCTAssertTrue(store.customHandlers.isEmpty)
+    }
+}

@@ -25,6 +25,35 @@
 - [x] `twin://` URL-scheme registrerad via project.yml (överlever generate.sh)
 - [x] StoreKit: `Configuration.storekit` med `se.dvisious.twin.pro`
 
+## Feltillstånd & återhämtning (tillagt efter pilotfynd 2026-10-24)
+
+Pilotanvändaren landade i "Can't Read Folder" utan väg vidare —
+testerna körde bara i läsbara mappar. Kontrollera varje release:
+
+- [ ] Starta med en sparad session som pekar på en mapp utan
+      behörighet (t.ex. /Users utan bokmärke): feltillståndet ska
+      erbjuda Grant Access / Choose Another Folder / Go Up — aldrig
+      bara Try Again.
+- [ ] Grant Access från feltillståndet ska ladda mappen efter val.
+- [ ] Pil-navigation (↑/↓) direkt efter start, utan föregående klick
+      (täckt av `testArrowKeysMoveSelection`).
+- [ ] Första start utan bokmärken: Welcome-grant visas, panelerna
+      står i hem/Desktop — aldrig i sandbox-containern.
+
+## Viewers, editors & filtypskopplingar (2026-10-24)
+
+- [x] F3 Viewer: text/kod med radnummer, Markdown renderad (+ Raw),
+      bild med zoom, PDF, media, hex för binärt — `testF3OpensBuiltinViewer`
+- [x] Guide: Files ▸ File Type Handlers… — välj filtyp, visare (F3),
+      editor (F4/Enter åsidosätter macOS standard i Twin), egen
+      handler (app eller kommando med {file}) — `testFileTypeHandlersGuideOpens`
+- [x] Högerklick ▸ Open With: Twin Viewer/Editor, installerade appar,
+      egna handlers, macOS standardapp
+- [ ] Manuellt: sätt .log → extern editor i guiden, verifiera att
+      Enter öppnar dit och att valet överlever omstart
+- [ ] Manuellt: egen kommando-handler (t.ex. xxd {file}) körs från
+      Open With utan fel i statusraden
+
 ## Kvar före submit
 
 - [x] `Scripts/archive.sh --unsigned` — `ARCHIVE SUCCEEDED` lokalt. Signerad arkivering + hardened runtime kräver aktivt Apple Developer-konto (#7)
