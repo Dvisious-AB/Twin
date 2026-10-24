@@ -66,8 +66,12 @@ final class TwinUITests: XCTestCase {
         // 40098627865), so selection measurement there does not
         // reflect the app. The regression stays pinned locally on
         // current macOS, and the user verified real-keyboard arrows.
+        // The test process does not inherit the CI env var, so
+        // detect the hosted runner by its home directory.
+        let onHostedRunner = FileManager.default.homeDirectoryForCurrentUser.path
+            .hasPrefix("/Users/runner")
         try XCTSkipIf(
-            ProcessInfo.processInfo.environment["CI"] == "true",
+            onHostedRunner,
             "AX selection reporting differs on the CI runner; verified locally")
         let outline = app.outlines.firstMatch
         XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 10))
