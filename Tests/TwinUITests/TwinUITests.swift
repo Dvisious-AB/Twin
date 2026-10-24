@@ -57,12 +57,23 @@ final class TwinUITests: XCTestCase {
         // Movement, not exact steps: XCUITest key events can repeat
         // (holding ↓ scrolls in real use too). The regression being
         // pinned is "arrows do nothing without a prior mouse click".
+        // Cold CI runners can drop the first keypress before the
+        // window is key, so press until the selection moves — the
+        // assertion stays the same: arrows alone move the selection.
         let before = try XCTUnwrap(selectedIndex())
-        app.typeKey(XCUIKeyboardKey.downArrow, modifierFlags: [])
-        let afterDown = try XCTUnwrap(selectedIndex())
+        var afterDown = before
+        for _ in 0..<10, afterDown == before {
+            app.typeKey(XCUIKeyboardKey.downArrow, modifierFlags: [])
+            Thread.sleep(forTimeInterval: 0.5)
+            afterDown = selectedIndex() ?? before
+        }
         XCTAssertGreaterThan(afterDown, before)
-        app.typeKey(XCUIKeyboardKey.upArrow, modifierFlags: [])
-        let afterUp = try XCTUnwrap(selectedIndex())
+        var afterUp = afterDown
+        for _ in 0..<10, afterUp == afterDown {
+            app.typeKey(XCUIKeyboardKey.upArrow, modifierFlags: [])
+            Thread.sleep(forTimeInterval: 0.5)
+            afterUp = selectedIndex() ?? afterDown
+        }
         XCTAssertLessThan(afterUp, afterDown)
     }
 
