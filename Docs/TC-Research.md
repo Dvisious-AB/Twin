@@ -1,62 +1,218 @@
-# Undersökning: Total Commander — funktioner och tangentbord
+# Undersökning: Total Commander jämfört med Twin — komplett gap-matris
 
-Källor: Ghisler FAQ (ghisler.com/efaquser.htm), TC-forum (ghisler.ch/board),
-genvägsöversikter för Total Commander. Undersökt 2026-10-23.
+Undersökt 2026-10-24 (ersätter den avgränsade versionen från 2026-10-23).
+Källor för TC: Ghisler FAQ (ghisler.com/efaquser.htm), TC-forum
+(ghisler.ch/board), DefKey:s genvägslista (defkey.com/total-commander-shortcuts),
+skärmbild av TC 7.0 från ProductOwner.
+Källor för Twin: kodinventering av `Sources/TwinApp`, `Sources/TwinCore`,
+`Sources/TwinPro` samma dag — status nedan säger var funktionen bor.
 
-## Standardknappar (funktionsraden, TC)
+## Slutsats
 
-| TC | Funktion | Twin (macOS-mappning) |
-|---|---|---|
-| F3 | Visa fil (Lister) | Space / Quick Look (finns) |
-| F4 | Redigera fil | Cmd+E — inbyggd textredigerare (nytt) |
-| F5 | Kopiera till andra panelen | Cmd+5 + knapp (finns) |
-| F6 | Flytta/döp om | Cmd+6 + knapp (finns; rename kvarstår) |
-| F7 | Ny mapp | Cmd+7 (kvarstår) |
-| F8 / Del | Radera (papperskorg) | Cmd+Delete — till papperskorgen, med bekräftelse (nytt) |
-| Alt+F5 | Packa (komprimera) | Cmd+Shift+C — .zip bredvid markeringen (nytt) |
-| Alt+F6 | Packa upp | kvarstår |
-| Alt+F1/F2 | Byt enhet vänster/höger panel | Volymer i breadcrumb (kvarstår) |
+Twin har TC:s kärna: två paneler, F3–F8, markering, historik, tabbar,
+katalogstorlekar, packa/unpacka (zip), massbyte av namn och mappsynk.
+Twin saknar TC:s verktygsdjup runt panelerna: rekursiv sökning,
+kommandorad, arkiv som mappar, filjämförelse och nätverkspaneler.
+Twin har också funktioner TC saknar: AI-assistent, filtypsguide med
+egna handlers, git-badges, proaktiva mappinsikter och FinderSync.
 
-SwiftUI saknar F-tangenter i `KeyEquivalent`, därav Cmd-mappningarna.
-Knapparna i funktionsraden ska alltid visa TC-namnen (F5 Copy osv).
+Status: ✅ klart · 🟡 delvis · ❌ saknas · 🚫 medvetet avstående
+(Windows-specifikt utan macOS-motsvarighet).
 
-## Navigation (verifierat mot Ghislers dokumentation/forum)
+Prioritet för det som saknas:
+P0 = TC-användare förväntar sig det dag 1 · P1 = tydligt proffsbehov ·
+P2 = nisch, byggs vid efterfrågan.
 
-- **Backspace eller Ctrl+PgUp: upp en nivå** (`cd ..`). På Mac är
-  Delete-tangenten (⌫) just Backspace — i Twin går ⌫ upp en nivå.
-  Radera filer är i TC F8/Del (framåt-delete); i Twin Cmd+⌫ till
-  papperskorgen. Den uppdelningen är medveten och dokumenterad i hjälptexter.
-- **Ctrl+PgDn / Enter: öppna mapp.** I Twin: Enter eller dubbelklick.
-- **Alt+Pil vänster/höger: bakåt/framåt i historiken**, Alt+Ned: historiklista.
-  I Twin: Alt+Pil samt < >-knapparna i panelhuvudet (historik per panel).
-- **Ctrl+\\: till roten.** Spårat, ej implementerat som tangent ännu.
-- Pil upp/ned: flytta markering (Table sköter det). När man går upp en
-  nivå placerar TC markören på mappen man kom ifrån — implementerat i Twin.
-- Tab: byt panel. Cmd+1/Cmd+2 som komplement (finns).
+## 1. Funktionsrad och filoperationer
+
+| TC-funktion | TC | Twin | Status | Prio |
+|---|---|---|---|---|
+| Visa fil (Lister) | F3 | F3 Twin Viewer + Quick Look (Space) | ✅ | |
+| Redigera fil | F4 | F4/Cmd+E inbyggd editor, extern via filtypsguide | ✅ | |
+| Kopiera till andra panelen | F5 | Riktiga F5 + Cmd+5, progress med hastighet | ✅ | |
+| Flytta | F6 | Riktiga F6 + Cmd+6 | ✅ | |
+| Döp om | Shift+F6 | Rename i meny/funktionsrad (Cmd+Shift+R) | ✅ | |
+| Ny mapp | F7 | Riktiga F7 + Cmd+7 | ✅ | |
+| Radera till papperskorg | F8 | Riktiga F8 + Cmd+Delete, bekräftelse, alltid Trash | ✅ | |
+| Packa | Alt+F5 | Cmd+Shift+C, .zip bredvid markeringen | ✅ | |
+| Packa upp | Alt+F6 | Cmd+Shift+U via funktionsrad/meny | ✅ | |
+| Packa fler format (RAR, 7z, tar) | Alt+F5 | Endast zip | ❌ | P1 |
+| Bläddra i arkiv som mapp | Enter på arkiv | Arkiv kan bara packas upp till mapp | ❌ | P0 |
+| Kopieringskö (bakgrund, F2 i dialogen) | F5→F2 | En operation i taget, avbrytbar | 🟡 | P1 |
+| Överskrivningsdialog (jämför, döp om, hoppa) | vid konflikt | Hoppar över befintliga + rapporterar i statusrad | 🟡 | P1 |
+| Dela/kombinera filer | Files-menyn | — | ❌ | P2 |
+| Skriv ut fillista | Files-menyn | — | ❌ | P2 |
+
+## 2. Navigation och paneler
+
+| TC-funktion | TC | Twin | Status | Prio |
+|---|---|---|---|---|
+| Upp en nivå | Backspace / Ctrl+PgUp | ⌫ eller Ctrl+PgUp; markören hamnar på mappen man kom från | ✅ | |
+| Öppna mapp/fil | Enter / Ctrl+PgDn | Enter, dubbelklick; editorval åsidosätter macOS | ✅ | |
+| Bakåt/framåt i historik | Alt+←/→ | Alt+←/→ samt chevronknappar | ✅ | |
+| Historiklista | Alt+↓ | — (bara stega med Alt+←/→) | ❌ | P1 |
+| Till roten | Ctrl+\ | Ctrl+\ implementerat | ✅ | |
+| Byt panel | Tab | Tab + Cmd+1/Cmd+2 | ✅ | |
+| Fokus på listan direkt | alltid | Ja, utan musklick (XCUITest-verifierat lokalt) | ✅ | |
+| Enhetsväljare per panel | Alt+F1/F2 | Go-menyn (Home/Desktop/Documents/Downloads/iCloud) + bokmärken | 🟡 | P0 |
+| Volymer (externa diskar, nätverk) | Alt+F1-listan | Syns via breadcrumbs från /Volumes | 🟡 | P0 |
+| Mapplista-favoriter (Directory Hotlist) | Ctrl+D | Workspaces (Pro) + Go-menyn, ingen snabbmeny per panel | 🟡 | P1 |
+| Grenvy: alla filer rekursivt i en lista | Ctrl+B | — | ❌ | P1 |
+| Trädvy | Alt+F10 | Breadcrumbs ersätter delvis | ❌ | P2 |
+| Flikar per panel | Ctrl+T/W | Ja, Cmd+T/Cmd+W, sessionen återställs | ✅ | |
+| Låsta flikar, fliknamn | högerklick på flik | — | ❌ | P2 |
+| Två paneler speglar samma mapp | cm_MatchSrc | — (Workspaces täcker en del) | ❌ | P2 |
+
+## 3. Visning och sortering
+
+| TC-funktion | TC | Twin | Status | Prio |
+|---|---|---|---|---|
+| Kort/full vy, kolumner | Ctrl+F1/F2 | Lista (Name/Size/Type/Modified) + ikonvy | 🟡 | P1 |
+| Separat Ext-kolumn | alltid | Type-kolumn med ändelse | 🟡 | P1 |
+| Sortera namn/ändelse/storlek/datum | Ctrl+F3–F6 | Kolumnklick; kataloger först är standard | ✅ | |
+| Katalogstorlekar | Space / Alt+Shift+Enter | Automatiskt i bakgrunden med cache (`DirectorySizeService`) | ✅ | |
+| Miniatyrer (thumbnails) | Ctrl+Shift+F1 | Systemikoner, inga miniatyrer | ❌ | P1 |
+| Anpassade kolumner | Configuration | Fasta kolumner | ❌ | P2 |
+| Färgregler per filtyp | Configuration | Bara git-badges färgas | ❌ | P2 |
+| Snabbvy i andra panelen | Ctrl+Q | Quick Look-fönster (Space) i stället | 🟡 | P2 |
+| Visa dolda filer | cm_SwitchHidSys | Ingen växling (dolda filtreras i listningen) | ❌ | P0 |
+
+## 4. Markering och urval
+
+| TC-funktion | TC | Twin | Status | Prio |
+|---|---|---|---|---|
+| Markera med Space/Insert | Space/Ins | Cmd+klick i ikonvy; Space är upptaget av Quick Look | 🟡 | P1 |
+| Markera efter mönster | Numpad + | — | ❌ | P0 |
+| Markera efter ändelse | Alt+Numpad + | — | ❌ | P1 |
+| Markera allt/avmarkera allt | Ctrl+A / Numpad − | Systemets val i listan | 🟡 | P1 |
+| Invertera markering | Numpad * | — | ❌ | P2 |
+| Jämför markering mellan paneler | Shift+F2 (Compare dirs) | — | ❌ | P1 |
+| Markerade räknas i statusraden | alltid | Ja, antal + storlek för markeringen | ✅ | |
+
+## 5. Sök
+
+| TC-funktion | TC | Twin | Status | Prio |
+|---|---|---|---|---|
+| Snabbsök i listan | Ctrl+S / bokstäver | Cmd+F filterfält per panel med träffmarkering | ✅ | |
+| Hitta filer rekursivt | Alt+F7 | — | ❌ | P0 |
+| Sök text i filer | Alt+F7-flik | — | ❌ | P0 |
+| Sök med datum/storlek/attribut | Alt+F7-flikar | — | ❌ | P1 |
+| Hitta dubbletter | Alt+F7 (duplicates) | Mappinsikter varnar för stora/gamla filer, ej dubbletter | 🟡 | P1 |
+| Sökresultat som lista ("Feed to listbox") | i sökdialogen | — | ❌ | P0 |
+| Sparade sökningar | Alt+F7 (Load/Save) | — | ❌ | P2 |
+
+## 6. Verktyg i TC:s menyer
+
+| TC-funktion | TC | Twin | Status | Prio |
+|---|---|---|---|---|
+| Multi-Rename-Tool | Ctrl+M | Batch Rename (Pro): sök/ersätt, prefix/suffix, numrering, förhandsvisning | 🟡 | P1 |
+| Synkronisera mappar | Commands | Folder Sync (Pro): jämför + kopiera, spegel till Trash | ✅ | |
+| Jämför filer efter innehåll | Shift+F2 / Files | — | ❌ | P0 |
+| Kontrollsummor skapa | Files (CRC/MD5) | MD5-fil per fil (CryptoKit) | ✅ | |
+| Kontrollsummor verifiera | Files | MD5 beräknas i kod men ingen verifierings-UI | 🟡 | P1 |
+| Kryptera | Files (med lösenord) | AES-GCM .twinenc (Cmd+Shift+E), mer än TC:s bas | ✅ | |
+| Byt attribut (datum, tider, rwx) | Files | Permissions (Cmd+I): rwx triader + presets, nybörjarvänligt | 🟡 | P1 |
+| Kommandorad + historik | nederst, Alt+F8 | — | ❌ | P0 |
+| Kör externt program för filtyp | interna kopplingar | **Filtypsguiden**: egen app eller kommando med `{file}` — går längre än TC | ✅ | |
+| Systeminfo, processlista | Start-menyn | — (utanför filhantering) | 🚫 | |
+| FTP/FTPS-panel | Ctrl+F | — | ❌ | P1 |
+| SFTP/WebDAV (plugins) | plugin | — | ❌ | P2 |
+| Windows-registret, .lnk, ADS | plugin/Windows | Ingen macOS-motsvarighet | 🚫 | |
+
+## 7. Lister (F3) och plugins
+
+| TC-funktion | TC | Twin | Status | Prio |
+|---|---|---|---|---|
+| Text, hex, binär | Lister | Text med radnummer, hexdump för binärt | ✅ | |
+| Bilder, media | Lister + plugins | Bildzoom, PDF, AVPlayer inbyggt | ✅ | |
+| Markdown renderad | plugin | Inbyggt med Raw-växling | ✅ | |
+| Välja extern viewer per typ | Configuration | Filtypsguiden (steg 2, gäller F3) | ✅ | |
+| Lister-plugins (WLX/WCX/WDX) | plugin-ekosystem | Egna handlers i guiden ersätter enklaste fallen; inget binärt plugin-API | 🟡 | P2 |
+
+## 8. Det Twin har som TC saknar
+
+| Twin-funktion | Var |
+|---|---|
+| AI-assistent: svar från inbyggd hjälp + on-device-modell när den finns, åtgärdsknappar (kartotek, risker) | Assistant, Commands-menyn |
+| Siri/App Intents för filåtgärder | `Sources/TwinApp/Intents` |
+| Filtypsguide: koppla ändelse → visare/editor, åsidosätt macOS i Twin | Files ▸ File Type Handlers… |
+| Proaktiva mappinsikter: föräldralösa filer → Kartotek, behörighetsrisker | `FolderInsightsService` |
+| Git-badges (M/?) i namnkolumnen, skrivskyddat mot repot | Pro, `GitStatusService` |
+| Enkel behörighetsredigering för nybörjare | Permissions (Cmd+I) |
+| FinderSync: "Open in Twin" i Finder | FinderSyncExtension |
+| iCloud Drive i Go-menyn, start i hem/Desktop — aldrig sandboxcontainern | `UserPlaces` |
+| Sessionsåterställning per panel inkl. flikar | `PaneTabs` + UserDefaults |
+
+## 9. Verifierade navigationsregler (från förra undersökningen, fortfarande sanna)
+
+- **Backspace eller Ctrl+PgUp: upp en nivå.** På Mac är Delete-tangenten (⌫)
+  just Backspace — i Twin går ⌫ upp en nivå. Radera filer är Cmd+⌫ till
+  papperskorgen. Uppdelningen är medveten och dokumenterad i hjälptexterna.
+- **Ctrl+PgDn / Enter: öppna.** I Twin: Enter eller dubbelklick.
+- **Alt+←/→: bakåt/framåt i historiken** per panel, även chevronknappar.
+- **Ctrl+\: till roten.** Implementerat som tangent.
+- När man går upp en nivå placerar TC markören på mappen man kom ifrån —
+  implementerat i Twin (`goUp`).
 - Fokus ska ligga på fillistan direkt när panelen blir aktiv — inget
-  musklick först. Krav från ProductOwner, implementerat via `@FocusState`.
+  musklick först. Implementerat via fokus på Table/ScrollView.
+- TC visar `<DIR>` tills man ber om storlek (Space, Alt+Shift+Enter).
+  Twin räknar automatiskt i bakgrunden och cachar per sökväg med
+  ogiltigförklaring på ändringsdatum (`DirectorySizeService`), så
+  Space/Alt+Shift+Enter behövs inte. TCC-skyddade mappar räknas aldrig
+  i bakgrunden (de skulle trigga samtyckesdialoger).
 
-## Katalogstorlekar
+## 10. Prioriterad arbetsordning
 
-TC visar `<DIR>` tills man ber om storlek:
+Beta av i den här ordningen — varje punkt är en egen leverans med
+tester innan nästa börjar:
 
-- Space på en mapp: räkna just den mappen.
-- Alt+Shift+Enter: räkna alla mappar i listningen, sen kan man sortera
-  på storlek (Ctrl+F6 i TC).
+**P0 — TC-kärnans förväntningar**
+1. Rekursiv sökning (Alt+F7-motsvarighet): namn, textinnehåll, resultat
+   som lista man kan agera på. Största enskilda luckan.
+2. Kommandorad längst ner som på TC-bilden: kör kommando i aktiv mapp,
+   historik med Alt+F8-beteende, utdata synlig.
+3. Öppna arkiv som mappar (zip först, sedan tar/7z via formatstöd),
+   kopiera ut filer utan full uppackning.
+4. Visa/dölj dolda filer som växling (TC: cm_SwitchHidSys).
+5. Markera efter mönster (glob) — litet jobb, stor TC-vana.
+6. Volymväljare per panel: Alt+F1/F2-tänk med /Volumes, externa diskar
+   och iCloud som förstklassiga val.
 
-Twin: `DirectorySizeService` (actor) räknar rekursivt i bakgrunden och
-cachar per sökväg. Cachen ogiltigförklaras när mappens ändringsdatum
-flyttar sig. Size-kolumnen visar `…` medan räkning pågår, därefter
-storleken — automatiskt, utan tangenttryck, med Space/Alt+Shift+Enter-
-semantiken som förlaga (vi räknar direkt eftersom cachen gör det billigt
-andra gången).
+**P1 — proffsdjup**
+7. Jämför två filer efter innehåll (diff-vy för text).
+8. Överskrivningsdialog vid kopiering: jämför/döp om/hoppa över per fil.
+9. Kopieringskö: flera operationer i bakgrunden med gemensam progress.
+10. Fler arkivformat vid packning (tar.gz), checksum-verifiering i UI.
+11. Miniatyrer i ikonvyn, separat Ext-kolumn som val.
+12. Markera efter ändelse, jämför markering mellan paneler (Shift+F2).
+13. Attribut komplett: datum/tider utöver rwx i Permissions.
+14. FTP-panel (FTPS först) — kräver nätverksentitlement och säkerhetsgranskning.
+15. Grenvy (Ctrl+B): alla filer rekursivt i en lista.
 
-## Övriga operationer (denna omgång)
+**P2 — vid efterfrågan**
+16. Egna kolumner och färgregler per filtyp.
+17. Dela/kombinera filer, skriv ut fillista, sparade sökningar.
+18. SFTP/WebDAV, låsta flikar, historiklista (Alt+↓) som meny.
+19. Binärt plugin-API motsvarande WLX/WCX — först om egna handlers
+    i guiden visar sig otillräckliga.
 
-- MD5: skapa `<fil>.md5` bredvid filen (CryptoKit, strömmande läsning).
-- Kryptera: AES-GCM (CryptoKit), nyckel från lösenfras via SHA-256,
-  utdata `<fil>.twinenc`. Dekryptering av `.twinenc` med samma fras.
-- Radera: papperskorgen via `FileManager.trashItem`, aldrig direkt rm,
-  och alltid bekräftelse först.
-- Editor: enkel inbyggd textredigerare (TextEditor) för textfiler,
-  Cmd+S sparar tillbaka till samma fil.
+**Medvetna avståenden (🚫)**
+- Enhetsbokstäver som begrepp — macOS har volymer, Twin använder
+  platser och /Volumes i stället.
+- Windows-register, .lnk-genvägar, alternativa dataströmmar.
+- Systemverktyg utanför filhantering (processlistor, systeminfo).
+
+## 11. Metod och begränsningar
+
+- Twin-status kommer från kodläsning, inte från dokument: menyerna i
+  `Sources/TwinApp/TwinApp.swift`, funktionsraden i
+  `Sources/TwinApp/Features/DualPane/DualPaneView.swift`, panelbeteende
+  i `PaneView.swift`/`PaneViewModel.swift`, tjänsterna i
+  `Sources/TwinCore/*.swift`.
+- TC-listan bygger på genvägs- och funktionsöversikter ovan plus
+  ProductOwners TC 7.0-skärmbild. TC har hundratals interna kommandon
+  (cm_*); matrisen täcker allt som är synligt i menyer, funktionsrad
+  och standardgenvägar — inte varje cm_-kommando.
+- Där Twin medvetet valt annorlunda än TC (Space = Quick Look i stället
+  för markering, Cmd+⌫ i stället för Del) står det i matrisen som 🟡,
+  inte som fel.
