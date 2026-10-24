@@ -79,7 +79,23 @@ final class TwinUITests: XCTestCase {
             Thread.sleep(forTimeInterval: 0.5)
             afterDown = selectedIndex() ?? before
         }
-        XCTAssertGreaterThan(afterDown, before)
+        if afterDown <= before {
+            // Diagnose in CI (passes locally): dump every outline's
+            // selection so we see which pane, if any, the keys reach.
+            var report = "outlines: \(app.outlines.count)\n"
+            for index in 0..<app.outlines.count {
+                let candidate = app.outlines.element(boundBy: index)
+                let selected = (0..<candidate.cells.count)
+                    .filter { candidate.cells.element(boundBy: $0).isSelected }
+                report += "outline \(index): cells=\(candidate.cells.count) selected=\(selected)\n"
+            }
+            XCTContext.runActivity(named: "Arrow failure diagnosis") { activity in
+                activity.add(XCTAttachment(string: report))
+                activity.add(XCTAttachment(screenshot: XCUIScreen.main.screenshot()))
+            }
+            XCTFail("Arrows did not move the selection. \(report)")
+            return
+        }
         var afterUp = afterDown
         for _ in 0..<10 where afterUp == afterDown {
             app.typeKey(XCUIKeyboardKey.upArrow, modifierFlags: [])
