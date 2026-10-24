@@ -174,7 +174,9 @@ struct DualPaneView: View {
             )
             .id(ObjectIdentifier(tabs.active))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .focused($paneFocus, equals: side)
+            // No .focused here: a second focus binding on the column
+            // stole the keyboard from the pane's Table (dead arrows).
+            // Activation flows through isActive → listFocused instead.
             .onTapGesture { selected = side; paneFocus = side }
         }
     }

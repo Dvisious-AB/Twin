@@ -41,6 +41,30 @@ final class TwinUITests: XCTestCase {
         XCTAssertEqual(tabChips.count, tabsBefore)
     }
 
+    // Arrow keys move the selection without any mouse click first
+    // (regression: pane root held focus, Table never saw the keys).
+    func testArrowKeysMoveSelection() throws {
+        let outline = app.outlines.firstMatch
+        XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 10))
+        // Deterministic listing: filesystem root.
+        app.typeKey("r", modifierFlags: [.command, .option])
+        XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 10))
+
+        func selectedIndex() -> Int? {
+            (0..<outline.cells.count).first { outline.cells.element(boundBy: $0).isSelected }
+        }
+        // Movement, not exact steps: XCUITest key events can repeat
+        // (holding ↓ scrolls in real use too). The regression being
+        // pinned is "arrows do nothing without a prior mouse click".
+        let before = try XCTUnwrap(selectedIndex())
+        app.typeKey(XCUIKeyboardKey.downArrow, modifierFlags: [])
+        let afterDown = try XCTUnwrap(selectedIndex())
+        XCTAssertGreaterThan(afterDown, before)
+        app.typeKey(XCUIKeyboardKey.upArrow, modifierFlags: [])
+        let afterUp = try XCTUnwrap(selectedIndex())
+        XCTAssertLessThan(afterUp, afterDown)
+    }
+
     // Keyboard-first: click a row, Enter opens it, Delete (backspace) goes up.
     // Starts from the filesystem root (Cmd+Option+R) so the listing is
     // never empty, regardless of the test machine's home folder.

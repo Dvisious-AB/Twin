@@ -12,7 +12,7 @@ struct PaneView: View {
     /// clicked/keyboard-used pane becomes the active one. The container
     /// tap gesture in DualPaneView is not enough: Table consumes row taps.
     var onActivate: () -> Void = {}
-    @FocusState private var listFocused: Bool
+    @FocusState var listFocused: Bool
 
     private let iconColumns = [
         GridItem(.adaptive(minimum: 76, maximum: 110), spacing: 12)
@@ -38,14 +38,39 @@ struct PaneView: View {
                     .allowsHitTesting(false)
             }
         }
-        .focusable()
-        .focused($listFocused)
+        // Focus lives on the Table/ScrollView themselves (below), not
+        // here: a focusable container left the keyboard on a static
+        // text and arrow keys did nothing at all.
         .onAppear { if isActive { listFocused = true } }
         .onChange(of: isActive) { _, active in if active { listFocused = true } }
         .onChange(of: viewModel.selection) { _, _ in onActivate() }
         .onKeyPress(.return) {
             guard !viewModel.selection.isEmpty else { return .ignored }
             viewModel.openFirstSelected()
+            return .handled
+        }
+        .onKeyPress(phases: .down) { press in
+            // Arrow/Home/End navigation. The pane root holds focus (not
+            // the Table), so the Table's built-in arrow handling never
+            // engages — move the selection explicitly or ↑/↓ are dead.
+            let delta: Int
+            switch press.key {
+            case .upArrow: delta = -1
+            case .downArrow: delta = 1
+            case .pageUp: delta = -10
+            case .pageDown: delta = 10
+            case .home: delta = -sortedItems.count
+            case .end: delta = sortedItems.count
+            default: return .ignored
+            }
+            // Ctrl+PageUp/PageDown keep their TC meaning (handled below).
+            guard !press.modifiers.contains(.control) else { return .ignored }
+            guard press.modifiers.isSubset(of: [.shift]) else { return .ignored }
+            // In list mode the focused Table moves natively — handling
+            // it here too would move twice per keypress. The explicit
+            // mover exists for the icon grid, which has no native keys.
+            guard viewModel.viewMode == .icon else { return .ignored }
+            moveSelection(by: delta, extend: press.modifiers.contains(.shift))
             return .handled
         }
         .onKeyPress(phases: .down) { press in
@@ -271,6 +296,24 @@ struct PaneView: View {
         return text
     }
 
+    /// Moves the cursor in display order. Shift extends the selection
+    /// (TC marking); without a selection, Down starts at the first row.
+    private func moveSelection(by delta: Int, extend: Bool) {
+        let items = sortedItems
+        guard !items.isEmpty else { return }
+        let urls = items.map(\.url)
+        guard let index = urls.firstIndex(where: { viewModel.selection.contains($0) }) else {
+            viewModel.selection = [delta >= 0 ? items[0].url : items[items.count - 1].url]
+            return
+        }
+        let target = min(max(index + delta, 0), items.count - 1)
+        if extend {
+            viewModel.selection.insert(items[target].url)
+        } else {
+            viewModel.selection = [items[target].url]
+        }
+    }
+
     private var listView: some View {
         Table(sortedItems, selection: $viewModel.selection, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.name) { item in
@@ -323,6 +366,9 @@ struct PaneView: View {
         // No alternating filler rows below the last real row
         // (they read as ghost/missing files — UX review P1-10).
         .tableStyle(.inset(alternatesRowBackgrounds: false))
+        // The Table itself takes keyboard focus so its native arrow
+        // navigation works from pane entry, no click needed.
+        .focused($listFocused)
         .onTapGesture(count: 2) { viewModel.openFirstSelected() }
         .contextMenu(forSelectionType: URL.self) { _ in
             Button("Open") { viewModel.openFirstSelected() }
@@ -338,7 +384,7 @@ struct PaneView: View {
     private var iconView: some View {
         ScrollView {
             LazyVGrid(columns: iconColumns, spacing: 14) {
-                ForEach(viewModel.filteredItems, id: \.url) { item in
+                ForEach(sortedItems, id: \.url) { item in
                     VStack(spacing: 4) {
                         FileItemIcon(item: item, size: 32)
                         Text(item.name)
@@ -384,6 +430,10 @@ struct PaneView: View {
             }
             .padding(10)
         }
+        // Grid cells are not focusable; the scroll view takes focus
+        // and arrow keys bubble to the pane's explicit moveSelection.
+        .focusable()
+        .focused($listFocused)
     }
 
     private var statusBar: some View {
