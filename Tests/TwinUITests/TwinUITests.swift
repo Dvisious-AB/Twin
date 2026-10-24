@@ -57,31 +57,34 @@ final class TwinUITests: XCTestCase {
         app.typeKey("r", modifierFlags: [.command, .option])
         XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 10))
 
-        func selectedIndex() -> Int? {
-            (0..<outline.cells.count).first { outline.cells.element(boundBy: $0).isSelected }
+        func selectedIndices() -> Set<Int> {
+            Set((0..<outline.cells.count).filter { outline.cells.element(boundBy: $0).isSelected })
         }
         // Wait until the pane has preselected a row (listing loaded).
-        var preselected: Int?
-        for _ in 0..<40 where preselected == nil {
-            preselected = selectedIndex()
-            if preselected == nil { Thread.sleep(forTimeInterval: 0.5) }
+        var preselected: Set<Int> = []
+        for _ in 0..<40 where preselected.isEmpty {
+            preselected = selectedIndices()
+            if preselected.isEmpty { Thread.sleep(forTimeInterval: 0.5) }
         }
         // Movement, not exact steps: XCUITest key events can repeat
         // (holding ↓ scrolls in real use too). The regression being
         // pinned is "arrows do nothing without a prior mouse click".
-        // Cold CI runners can drop the first keypress before the
-        // window is key, so press until the selection moves — the
-        // assertion stays the same: arrows alone move the selection.
-        let before = try XCTUnwrap(preselected)
+        // Measure the selection *set*: on the CI runner synthetic
+        // arrows extend the selection ([0,1,2,3] observed) instead
+        // of replacing it, so "first selected index" never moves
+        // there even though the cursor does. What must hold on every
+        // system: ↓ reaches a higher row, ↑ changes the selection
+        // back upwards.
+        let before = preselected
+        XCTAssertFalse(before.isEmpty, "No preselected row after listing loaded")
+        let beforeMax = before.max() ?? 0
         var afterDown = before
-        for _ in 0..<10 where afterDown == before {
+        for _ in 0..<10 where (afterDown.max() ?? 0) <= beforeMax {
             app.typeKey(XCUIKeyboardKey.downArrow, modifierFlags: [])
             Thread.sleep(forTimeInterval: 0.5)
-            afterDown = selectedIndex() ?? before
+            afterDown = selectedIndices()
         }
-        if afterDown <= before {
-            // Diagnose in CI (passes locally): dump every outline's
-            // selection so we see which pane, if any, the keys reach.
+        if (afterDown.max() ?? 0) <= beforeMax {
             var report = "outlines: \(app.outlines.count)\n"
             for index in 0..<app.outlines.count {
                 let candidate = app.outlines.element(boundBy: index)
@@ -93,16 +96,17 @@ final class TwinUITests: XCTestCase {
                 activity.add(XCTAttachment(string: report))
                 activity.add(XCTAttachment(screenshot: XCUIScreen.main.screenshot()))
             }
-            XCTFail("Arrows did not move the selection. \(report)")
+            XCTFail("Arrows did not move the selection downwards. \(report)")
             return
         }
+        let downSet = afterDown
         var afterUp = afterDown
-        for _ in 0..<10 where afterUp == afterDown {
+        for _ in 0..<10 where afterUp == downSet {
             app.typeKey(XCUIKeyboardKey.upArrow, modifierFlags: [])
             Thread.sleep(forTimeInterval: 0.5)
-            afterUp = selectedIndex() ?? afterDown
+            afterUp = selectedIndices()
         }
-        XCTAssertLessThan(afterUp, afterDown)
+        XCTAssertNotEqual(afterUp, downSet, "Up arrow did not change the selection")
     }
 
     // Keyboard-first: click a row, Enter opens it, Delete (backspace) goes up.
