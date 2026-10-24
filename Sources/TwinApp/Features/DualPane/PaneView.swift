@@ -290,6 +290,11 @@ struct PaneView: View {
                             .clipShape(Capsule())
                     }
                 }
+                // Drag source for the list view (was icon-view only,
+                // so list drags silently never started — found while
+                // proving Option-drag for #12). Table rows honour
+                // .draggable, not .onDrag, on the cell content.
+                .draggable(item.url)
             }
             TableColumn("Size", value: \.size) { item in
                 Text(viewModel.directorySizeText(for: item))

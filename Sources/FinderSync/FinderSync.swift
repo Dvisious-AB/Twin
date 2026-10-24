@@ -1,10 +1,14 @@
 import Cocoa
 import FinderSync
+import OSLog
+
+private let log = Logger(subsystem: "se.dvisious.twin.findersync", category: "Lifecycle")
 
 final class FinderSyncExtension: FIFinderSync {
     override init() {
         super.init()
         FIFinderSyncController.default().directoryURLs = [URL(fileURLWithPath: "/Users")]
+        log.notice("FinderSyncExtension init, observing /Users")
     }
 
     // MARK: - Toolbar item ("Twin View" in Finder toolbar)
@@ -25,6 +29,7 @@ final class FinderSyncExtension: FIFinderSync {
     // MARK: - Directory observation / badges
 
     override func beginObservingDirectory(at url: URL) {
+        log.notice("beginObservingDirectory: \(url.path)")
         FIFinderSyncController.default().setBadgeIdentifier("Twin", for: url)
     }
 
@@ -39,6 +44,7 @@ final class FinderSyncExtension: FIFinderSync {
     // MARK: - Context menu
 
     override func menu(for menuKind: FIMenuKind) -> NSMenu {
+        log.notice("menu(for:) called, kind=\(menuKind.rawValue)")
         let menu = NSMenu(title: "")
         let item = NSMenuItem(
             title: "Open in Twin",

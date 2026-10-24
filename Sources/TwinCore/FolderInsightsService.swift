@@ -48,9 +48,15 @@ public enum FolderInsightsService {
         for url in contents {
             let values = try? url.resourceValues(forKeys: Set(keys))
             if values?.isDirectory == true {
-                let children = try? fileManager.contentsOfDirectory(atPath: url.path)
-                if children?.isEmpty == true {
-                    insights.emptyFolders.append(url)
+                // Never peek inside TCC-protected folders from a
+                // background scan: opening Desktop/Documents/… here
+                // made macOS show consent prompts just for listing
+                // the home folder.
+                if !DirectorySizeService.isProtectedFolder(url) {
+                    let children = try? fileManager.contentsOfDirectory(atPath: url.path)
+                    if children?.isEmpty == true {
+                        insights.emptyFolders.append(url)
+                    }
                 }
                 continue
             }
@@ -90,7 +96,10 @@ public enum FolderInsightsService {
         var files: [URL] = []
         if let enumerator = fileManager.enumerator(at: folder, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) {
             for case let url as URL in enumerator {
-                if (try? url.resourceValues(forKeys: Set(keys)))?.isRegularFile == true {
+                let values = try? url.resourceValues(forKeys: Set(keys + [.isDirectoryKey]))
+                if values?.isDirectory == true, DirectorySizeService.isProtectedFolder(url) {
+                    enumerator.skipDescendants()
+                } else if values?.isRegularFile == true {
                     files.append(url)
                 }
             }

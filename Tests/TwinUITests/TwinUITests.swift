@@ -59,6 +59,13 @@ final class TwinUITests: XCTestCase {
         XCTAssertTrue(outline.cells.element(boundBy: 0).waitForExistence(timeout: 5))
     }
 
+    // NOTE: drag-and-drop has no E2E test — XCUITest/CGEvent synthetic
+    // drags initiate (drag image observed) but never complete a drop
+    // into the SwiftUI Table panes in this environment. The list-view
+    // drag source (.draggable) and the drop path are covered by unit
+    // tests of the underlying services; end-to-end proof needs a real
+    // mouse (issue #12).
+
     // The assistant opens from the function bar's More menu and answers from built-in help.
     // Timeouts are generous: cold CI runners take >100 s for first launch
     // (observed 122 s for a sibling test) while local runs take ~8 s.
@@ -70,10 +77,13 @@ final class TwinUITests: XCTestCase {
         // SwiftUI Menu surfaces as different AX types across macOS
         // versions (menuButton locally, popUpButton on the CI runner),
         // so poll the candidate types once the bar is rendered.
+        // firstMatch keeps the element unambiguous even when restored
+        // extra windows duplicate the function bar.
         var more: XCUIElement?
         let deadline = Date().addingTimeInterval(30)
         while more == nil, Date() < deadline {
-            more = [app.menuButtons["More"], app.popUpButtons["More"], app.buttons["More"]]
+            more = [app.menuButtons, app.popUpButtons, app.buttons]
+                .map { $0.matching(NSPredicate(format: "title == 'More' OR label == 'More'")).firstMatch }
                 .first { $0.exists }
             if more == nil { Thread.sleep(forTimeInterval: 1) }
         }

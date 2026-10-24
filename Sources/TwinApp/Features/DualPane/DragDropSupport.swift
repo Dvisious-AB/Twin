@@ -138,7 +138,12 @@ enum DragDropSupport {
                 case let url as NSURL:
                     continuation.resume(returning: url as URL)
                 case let data as Data:
-                    continuation.resume(returning: URL(dataRepresentation: data, relativeTo: nil))
+                    // .draggable(URL) delivers the file URL as string
+                    // data, not a URL object — accept both encodings.
+                    let fromData = URL(dataRepresentation: data, relativeTo: nil)
+                    let fromString = String(data: data, encoding: .utf8)
+                        .flatMap { URL(string: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                    continuation.resume(returning: fromData ?? fromString)
                 default:
                     continuation.resume(returning: nil)
                 }
