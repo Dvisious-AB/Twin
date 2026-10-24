@@ -85,7 +85,8 @@ final class TwinUITests: XCTestCase {
             afterDown = selectedIndices()
         }
         if (afterDown.max() ?? 0) <= beforeMax {
-            var report = "outlines: \(app.outlines.count)\n"
+            var report = "before=\(before.sorted()) afterDown=\(afterDown.sorted()) "
+                + "windows=\(app.windows.count) outlines: \(app.outlines.count)\n"
             for index in 0..<app.outlines.count {
                 let candidate = app.outlines.element(boundBy: index)
                 let selected = (0..<candidate.cells.count)
