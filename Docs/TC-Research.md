@@ -3,7 +3,8 @@
 Undersökt 2026-10-24 (ersätter den avgränsade versionen från 2026-10-23).
 Källor för TC: Ghisler FAQ (ghisler.com/efaquser.htm), TC-forum
 (ghisler.ch/board), DefKey:s genvägslista (defkey.com/total-commander-shortcuts),
-skärmbild av TC 7.0 från ProductOwner.
+skärmbild av TC 7.0 från ProductOwner. §10 bygger på ProductOwners
+skärmbild av EF Commander samma dag.
 Källor för Twin: kodinventering av `Sources/TwinApp`, `Sources/TwinCore`,
 `Sources/TwinPro` samma dag — status nedan säger var funktionen bor.
 
@@ -161,7 +162,30 @@ P2 = nisch, byggs vid efterfrågan.
   Space/Alt+Shift+Enter behövs inte. TCC-skyddade mappar räknas aldrig
   i bakgrunden (de skulle trigga samtyckesdialoger).
 
-## 10. Prioriterad arbetsordning
+## 10. Kompletterande referens: EF Commander
+
+Tillagt 2026-10-24 efter ProductOwners skärmbild av EF Commander
+(en TC-klon). Flera av dess idéer saknas i TC och fanns inte i
+matrisen ovan — de är nu inprioriterade i arbetsordningen:
+
+| EF-funktion | Vad det är | Twin i dag | Bedömning |
+|---|---|---|---|
+| Container (F9) | Virtuell panel: samla filer från olika mappar i en lista utan att flytta dem | Sökresultat blir motsvarigheten när rekursiv sökning byggs | P1 — bygg på sökresultaten |
+| Only selected files | Visa bara de markerade filerna i panelen | Filter finns på namn, inte på markering | P1 — litet jobb på befintligt filter |
+| Job Center | Central kö för bakgrundsjobb | En operation i taget (se §1) | Samma leverans som kopieringskön, §1/P1 |
+| Favorites-meny | Snabb favoritmappar per panel | Workspaces (Pro) + Go-menyn | Delvis täckt; per-panel-favoriter P2 |
+| Synchronous folder changing | Båda panelerna byter mapp i takt | — | P2 |
+| Synchronized scrolling | Panelerna scrollar synkat (jämför mappar) | — | P2 — hör ihop med mappjämförelse |
+| Tile Horizontally/Vertically | Växla panelriktning (sida-vid-sida eller staplade) | Alltid sida-vid-sida (HSplitView) | P2 |
+| 10 funktionsknappar (1 Help … 10 Exit) | Även hjälp och meny är funktionsknappar | F3–F8 + More-meny | Mönstret bekräftar vår funktionsrad; 9 Container följer av Container-stödet |
+| Filtypsfärger i listan | Färg per filtyp/kategori | Bara git-badges färgas | Redan P2 i §3 |
+
+Lärdom: EF Commander visar att TC-klonerna själva har fortsatt
+utvecklas. Matrisen mot TC förblir huvudspåret, men Container och
+Only selected files är värda att ta in — båda bygger på saker Twin
+redan har (sökresultat respektive filter).
+
+## 11. Prioriterad arbetsordning
 
 Beta av i den här ordningen — varje punkt är en egen leverans med
 tester innan nästa börjar:
@@ -188,12 +212,18 @@ tester innan nästa börjar:
 13. Attribut komplett: datum/tider utöver rwx i Permissions.
 14. FTP-panel (FTPS först) — kräver nätverksentitlement och säkerhetsgranskning.
 15. Grenvy (Ctrl+B): alla filer rekursivt i en lista.
+16. Container (från EF Commander): sökresultat/egen samling som
+    virtuell panel man kan kopiera från — naturlig fortsättning på 1.
+17. Only selected files (från EF Commander): filterläge som visar
+    bara markeringen i aktiv panel.
 
 **P2 — vid efterfrågan**
-16. Egna kolumner och färgregler per filtyp.
-17. Dela/kombinera filer, skriv ut fillista, sparade sökningar.
-18. SFTP/WebDAV, låsta flikar, historiklista (Alt+↓) som meny.
-19. Binärt plugin-API motsvarande WLX/WCX — först om egna handlers
+18. Egna kolumner och färgregler per filtyp.
+19. Dela/kombinera filer, skriv ut fillista, sparade sökningar.
+20. SFTP/WebDAV, låsta flikar, historiklista (Alt+↓) som meny.
+21. Synkroniserad navigering/scrollning mellan panelerna och
+    växling av panelriktning (Tile) — från EF Commander.
+22. Binärt plugin-API motsvarande WLX/WCX — först om egna handlers
     i guiden visar sig otillräckliga.
 
 **Medvetna avståenden (🚫)**
@@ -202,7 +232,7 @@ tester innan nästa börjar:
 - Windows-register, .lnk-genvägar, alternativa dataströmmar.
 - Systemverktyg utanför filhantering (processlistor, systeminfo).
 
-## 11. Metod och begränsningar
+## 12. Metod och begränsningar
 
 - Twin-status kommer från kodläsning, inte från dokument: menyerna i
   `Sources/TwinApp/TwinApp.swift`, funktionsraden i
