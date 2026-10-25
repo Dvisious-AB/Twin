@@ -195,51 +195,46 @@ struct DualPaneView: View {
     }
 
     private func tabStrip(tabs: PaneTabs, side: Int) -> some View {
-        HStack(spacing: 4) {
+        HStack(alignment: .bottom, spacing: 2) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
+                HStack(alignment: .bottom, spacing: 2) {
                     ForEach(Array(tabs.tabs.enumerated()), id: \.offset) { index, tab in
-                        HStack(spacing: 4) {
-                            Button(tab.currentURL.lastPathComponent) {
+                        TabItem(
+                            title: tab.currentURL.lastPathComponent,
+                            isActive: index == tabs.activeIndex,
+                            isPaneActive: selected == side,
+                            canClose: tabs.tabs.count > 1,
+                            onSelect: {
                                 tabs.select(at: index)
                                 selected = side
-                            }
-                            .accessibilityIdentifier("paneTab")
-                            .buttonStyle(.borderless)
-                            .font(.caption)
-                            .lineLimit(1)
-                            if tabs.tabs.count > 1 {
-                                Button {
-                                    tabs.close(at: index)
-                                } label: {
-                                    Image(systemName: "xmark").font(.caption2)
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            index == tabs.activeIndex
-                                ? Color.accentColor.opacity(selected == side ? 0.35 : 0.18)
-                                : Color.secondary.opacity(0.12)
+                            },
+                            onClose: { tabs.close(at: index) }
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
+                .padding(.leading, 6)
             }
             Button {
                 tabs.newTab()
                 selected = side
             } label: {
                 Image(systemName: "plus").font(.caption)
+                    .frame(width: 20, height: 20)
             }
             .buttonStyle(.borderless)
-            .help("New tab")
+            .help("New tab (Cmd+T)")
+            .padding(.bottom, 2)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .padding(.trailing, 6)
+        .padding(.top, 5)
+        // The strip is the desk the tabs stand on; the active tab
+        // wears the pane's own colour and meets the content below.
         .background(Color(nsColor: .controlBackgroundColor))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(nsColor: .separatorColor))
+                .frame(height: 1)
+        }
     }
 
     private func switchPane() {
@@ -647,5 +642,90 @@ private struct FunctionKeyHandler: NSViewRepresentable {
         deinit {
             if let monitor { NSEvent.removeMonitor(monitor) }
         }
+    }
+}
+
+/// Browser-style tab shape: rounded top corners, straight bottom
+/// edge so the active tab sits flush on the strip's baseline.
+private struct TabShape: Shape {
+    var radius: CGFloat = 8
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + radius, y: rect.minY),
+            control: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + radius),
+            control: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// One real tab: folder icon + name, close on hover/active.
+/// The active tab is taller and wears the window background so it
+/// visually connects to the pane beneath it; inactive tabs sit
+/// lower on the desk in a muted fill.
+private struct TabItem: View {
+    let title: String
+    let isActive: Bool
+    let isPaneActive: Bool
+    let canClose: Bool
+    var onSelect: () -> Void = {}
+    var onClose: () -> Void = {}
+
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "folder")
+                .font(.caption2)
+                .foregroundStyle(isActive ? Color.accentColor : .secondary)
+            Button(title) { onSelect() }
+                .accessibilityIdentifier("paneTab")
+                .buttonStyle(.borderless)
+                .font(isActive ? .caption.weight(.semibold) : .caption)
+                .lineLimit(1)
+                .frame(maxWidth: 130)
+            if canClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(.caption2, weight: .bold))
+                        .frame(width: 14, height: 14)
+                }
+                .buttonStyle(.borderless)
+                .opacity(isActive || isHovering ? 0.85 : 0.3)
+                .help("Close tab")
+            }
+        }
+        .padding(.leading, 9)
+        .padding(.trailing, 6)
+        .frame(height: isActive ? 27 : 23)
+        .background(
+            TabShape().fill(
+                isActive
+                    ? Color(nsColor: .windowBackgroundColor)
+                    : Color.secondary.opacity(isHovering ? 0.22 : 0.13)
+            )
+        )
+        .overlay(
+            TabShape().stroke(
+                isActive
+                    ? Color(nsColor: .separatorColor)
+                    : Color.clear,
+                lineWidth: 1
+            )
+        )
+        // The active tab covers the strip's bottom rule so tab and
+        // pane read as one surface; muted when its pane is inactive.
+        .opacity(isPaneActive || isActive ? 1 : 0.75)
+        .contentShape(TabShape())
+        .onTapGesture { onSelect() }
+        .onHover { isHovering = $0 }
     }
 }
