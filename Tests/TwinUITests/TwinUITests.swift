@@ -427,11 +427,25 @@ extension TwinUITests {
         XCTAssertTrue(runButton.waitForExistence(timeout: 10))
         XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Archive.zip").path))
         runButton.click()
-        // The zip appears in the listing and on disk.
+        // Poll the disk first (ground truth), then the listing.
+        let zipURL = folder.appendingPathComponent("Archive.zip")
+        var zipOnDisk = false
+        for _ in 0..<30 where !zipOnDisk {
+            zipOnDisk = FileManager.default.fileExists(atPath: zipURL.path)
+            if !zipOnDisk { Thread.sleep(forTimeInterval: 1) }
+        }
+        if !zipOnDisk {
+            let texts = window.staticTexts.allElementsBoundByIndex
+                .map { $0.value as? String ?? $0.label }.joined(separator: " | ")
+            XCTContext.runActivity(named: "Gemma zip diagnosis") { activity in
+                activity.add(XCTAttachment(string: texts))
+            }
+            XCTFail("Archive.zip never created. Window texts: \(texts)")
+            return
+        }
         let zipText = window.staticTexts.matching(
             NSPredicate(format: "label == %@ OR value == %@", "Archive.zip", "Archive.zip")).firstMatch
         XCTAssertTrue(zipText.waitForExistence(timeout: 20))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Archive.zip").path))
     }
 }
 
