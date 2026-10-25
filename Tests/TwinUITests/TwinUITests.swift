@@ -404,18 +404,31 @@ extension TwinUITests {
             NSPredicate(format: "label == %@ OR value == %@", "one.txt", "one.txt")).firstMatch
         XCTAssertTrue(oneText.waitForExistence(timeout: 15))
 
-        // Restored windows can duplicate the bar.
-        let field = app.textFields["gemmaBarField"].firstMatch
+        // Scope every element to the window showing the fixture —
+        // restored windows duplicate the Gemma bar and firstMatch
+        // clicks landed in the wrong window on CI.
+        var fixtureWindow: XCUIElement?
+        for index in 0..<app.windows.count {
+            let candidate = app.windows.element(boundBy: index)
+            if candidate.staticTexts.matching(
+                NSPredicate(format: "label == %@ OR value == %@", "one.txt", "one.txt")).firstMatch.exists {
+                fixtureWindow = candidate
+                break
+            }
+        }
+        let window = try XCTUnwrap(fixtureWindow, "No window shows the fixture folder")
+        window.click()
+        let field = window.textFields["gemmaBarField"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.click()
         field.typeText("skapa en zip av filerna i den här katalogen\n")
         // Plan first — nothing executed yet.
-        let runButton = app.buttons["gemmaRunButton"].firstMatch
+        let runButton = window.buttons["gemmaRunButton"].firstMatch
         XCTAssertTrue(runButton.waitForExistence(timeout: 10))
         XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Archive.zip").path))
         runButton.click()
         // The zip appears in the listing and on disk.
-        let zipText = app.staticTexts.matching(
+        let zipText = window.staticTexts.matching(
             NSPredicate(format: "label == %@ OR value == %@", "Archive.zip", "Archive.zip")).firstMatch
         XCTAssertTrue(zipText.waitForExistence(timeout: 20))
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Archive.zip").path))
