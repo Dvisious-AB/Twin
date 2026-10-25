@@ -57,9 +57,11 @@ public struct FolderFacts: Sendable {
 
     /// Compact grounding text for the on-device model prompt.
     public func contextSummary(folderName: String) -> String {
-        var parts = ["Folder \(folderName): \(files.count) item(s), \(ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .file)) total."]
+        let totalText = ByteCountFormatter.string(fromByteCount: Int64(totalBytes), countStyle: .file)
+        var parts = ["Folder \(folderName): \(files.count) item(s), \(totalText) total."]
         if let largest {
-            parts.append("Largest: \(largest.name) (\(ByteCountFormatter.string(fromByteCount: Int64(largest.sizeBytes), countStyle: .file))).")
+            let sizeText = ByteCountFormatter.string(fromByteCount: Int64(largest.sizeBytes), countStyle: .file)
+            parts.append("Largest: \(largest.name) (\(sizeText)).")
         }
         let top = files.sorted { $0.sizeBytes > $1.sizeBytes }.prefix(5)
         if !top.isEmpty {
