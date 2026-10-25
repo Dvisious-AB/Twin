@@ -11,7 +11,15 @@ final class TwinUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = ["-twin.didPickStartFolder", "YES"]
+        // Under heavy machine load the first launch can fail with
+        // "has not loaded accessibility" — relaunch once before
+        // giving up (seen on the self-hosted runner at load 7+).
         app.launch()
+        if app.state != .runningForeground {
+            app.terminate()
+            Thread.sleep(forTimeInterval: 3)
+            app.launch()
+        }
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
         terminateStrayTwins()
     }
