@@ -87,25 +87,44 @@ public enum FolderSyncService {
     ) throws -> SyncResult {
         let plan = compare(source: source, destination: destination)
         var result = SyncResult()
+        var newCopies: [String] = []
+        var trashedExtras: [JournalMove] = []
+        var overwritten = 0
         for entry in plan {
             let sourceFile = source.appendingPathComponent(entry.relativePath)
             let destinationFile = destination.appendingPathComponent(entry.relativePath)
             switch entry.state {
             case .onlyInSource, .different:
+                let existed = FileManager.default.fileExists(atPath: destinationFile.path)
                 try FileManager.default.createDirectory(
                     at: destinationFile.deletingLastPathComponent(),
                     withIntermediateDirectories: true
                 )
                 try TwinCore.fileCoordinator.copyItem(at: sourceFile, to: destinationFile)
+                if existed { overwritten += 1 } else { newCopies.append(destinationFile.path) }
                 result.copied += 1
             case .onlyInDestination:
                 if deleteExtras {
-                    try FileManager.default.trashItem(at: destinationFile, resultingItemURL: nil)
+                    var resulting: NSURL?
+                    try FileManager.default.trashItem(at: destinationFile, resultingItemURL: &resulting)
+                    if let resultingURL = resulting as URL? {
+                        trashedExtras.append(JournalMove(from: destinationFile, to: resultingURL))
+                    }
                     result.deleted += 1
                 }
             case .same:
                 result.skippedSame += 1
             }
+        }
+        if result.copied > 0 || result.deleted > 0 {
+            var title = "Synced \(source.lastPathComponent) to \(destination.lastPathComponent)"
+                + " (\(result.copied) copied, \(result.deleted) removed"
+            if overwritten > 0 { title += ", \(overwritten) updated — updates can't be undone" }
+            title += ")"
+            var record = OperationRecord(kind: .sync, title: title)
+            record.created = newCopies
+            record.trashed = trashedExtras
+            OperationJournal.shared.record(record)
         }
         return result
     }

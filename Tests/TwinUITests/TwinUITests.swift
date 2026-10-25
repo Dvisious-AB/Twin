@@ -540,4 +540,74 @@ extension TwinUITests {
                            "\(file) should no longer be loose")
         }
     }
+
+    // Undo: organize via Gemma, then Cmd+Z rewinds the journal —
+    // files are loose again, category folders gone, and History
+    // shows the entry as Undone.
+    func testOrganizeThenUndoRestores() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinUndoFixture")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        for (name, body) in [("photo.jpg", "img"), ("notes.txt", "text"), ("song.mp3", "audio")] {
+            try body.write(to: folder.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+
+        let encoded = folder.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? folder.path
+        let deepLink = try XCTUnwrap(URL(string: "twin://open?path=\(encoded)"))
+        terminateStrayTwins()
+        var delivered = false
+        for _ in 0..<5 where !delivered {
+            delivered = NSWorkspace.shared.open(deepLink)
+            if !delivered { Thread.sleep(forTimeInterval: 1) }
+        }
+        XCTAssertTrue(delivered)
+
+        var fixtureWindow: XCUIElement?
+        for index in 0..<app.windows.count {
+            let candidate = app.windows.element(boundBy: index)
+            if candidate.staticTexts.matching(
+                NSPredicate(format: "label == %@ OR value == %@", "photo.jpg", "photo.jpg")).firstMatch.exists {
+                fixtureWindow = candidate
+                break
+            }
+        }
+        let window = try XCTUnwrap(fixtureWindow, "No window shows the fixture folder")
+        window.click()
+        let field = window.textFields["gemmaBarField"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.click()
+        field.typeText("organisera den här mappen\n")
+        let runButton = window.buttons["gemmaRunButton"].firstMatch
+        XCTAssertTrue(runButton.waitForExistence(timeout: 10))
+        runButton.click()
+        let imagesText = window.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@", "Images", "Images")).firstMatch
+        XCTAssertTrue(imagesText.waitForExistence(timeout: 20))
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: folder.appendingPathComponent("Images/photo.jpg").path))
+
+        // Focus the pane (not the text field), then Cmd+Z.
+        imagesText.click()
+        window.typeKey("z", modifierFlags: .command)
+
+        // Files are loose again and the category folders are gone.
+        let looseAgain = NSPredicate { _, _ in
+            ["photo.jpg", "notes.txt", "song.mp3"].allSatisfy {
+                FileManager.default.fileExists(atPath: folder.appendingPathComponent($0).path)
+            } && !FileManager.default.fileExists(atPath: folder.appendingPathComponent("Images").path)
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: looseAgain, object: nil)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: 20), .completed)
+
+        // History shows the organize entry, marked Undone.
+        app.menuBars.menuBarItems["Files"].click()
+        let historyItem = app.menuBars.menuItems["History…"].firstMatch
+        XCTAssertTrue(historyItem.waitForExistence(timeout: 10))
+        historyItem.click()
+        XCTAssertTrue(app.staticTexts["Organized 3 file(s) in TwinUndoFixture"]
+            .waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Undone"].exists)
+        app.buttons["Done"].firstMatch.click()
+    }
 }

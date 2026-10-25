@@ -13,6 +13,10 @@ final class AppMenuBridge: ObservableObject {
     @Published var archiveSelected = false
     @Published var canCloseTab = false
     @Published var proUnlocked = false
+    @Published var canUndo = false
+    @Published var canRedo = false
+    @Published var undoTitle = "Undo"
+    @Published var redoTitle = "Redo"
 
     var copy: () -> Void = {}
     var move: () -> Void = {}
@@ -32,6 +36,9 @@ final class AppMenuBridge: ObservableObject {
     var batchRename: () -> Void = {}
     var focusFilter: () -> Void = {}
     var findFiles: () -> Void = {}
+    var undo: () -> Void = {}
+    var redo: () -> Void = {}
+    var showHistory: () -> Void = {}
     var setListView: () -> Void = {}
     var setIconView: () -> Void = {}
     var newTab: () -> Void = {}

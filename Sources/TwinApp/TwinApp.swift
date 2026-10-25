@@ -22,6 +22,15 @@ struct TwinApp: App {
         // Actions route through AppMenuBridge to the active pane.
         .commands {
             CommandMenu("Files") {
+                Button(menuBridge.undoTitle) { menuBridge.undo() }
+                    .keyboardShortcut("z", modifiers: .command)
+                    .disabled(!menuBridge.canUndo)
+                Button(menuBridge.redoTitle) { menuBridge.redo() }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+                    .disabled(!menuBridge.canRedo)
+                Button("History…") { menuBridge.showHistory() }
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
+                Divider()
                 Button("Pack (Zip)") { menuBridge.pack() }
                     .keyboardShortcut("c", modifiers: [.command, .shift])
                     .disabled(!menuBridge.hasSelection)

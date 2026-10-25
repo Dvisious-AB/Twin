@@ -54,6 +54,15 @@ public enum TwinHelp {
     }
 
     public static let topics: [HelpTopic] = [
+        HelpTopic(keywords: ["undo", "ångra", "angra", "redo", "historia", "history", "gjorde fel", "ändra mig"],
+                  answer: "Press Cmd+Z to undo the last file operation — copies, moves, renames, organize runs and " +
+                      "deletions are all journaled. Shift+Cmd+Z redoes. Files > History (Shift+Cmd+H) shows the whole " +
+                          "tail of what Twin has done; each entry has its own Undo button. Undo is safe: created files " +
+                              "go to Trash, they are never hard-deleted.",
+                  answerSV: "Tryck Cmd+Z för att ångra senaste filoperationen — kopieringar, flyttar, namnbyten, " +
+                      "organiseringar och raderingar journalförs alla. Shift+Cmd+Z gör om. Filer > Historik " +
+                      "(Shift+Cmd+H) visar hela svansen av vad Twin har gjort; varje post har en egen Ångra-knapp. " +
+                      "Ångra är säkert: skapade filer går till papperskorgen, de raderas aldrig permanent."),
         HelpTopic(keywords: ["sort", "organis", "organiz", "städa", "kategor"],
                   answer: "Use Assistant → Sort Into Folders: loose files are grouped into Images, Documents, Archives, Audio," +
                       "Video, Code and Other. " +

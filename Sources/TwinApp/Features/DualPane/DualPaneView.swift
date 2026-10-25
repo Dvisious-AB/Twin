@@ -41,6 +41,8 @@ struct DualPaneView: View {
     @State private var showAssistant = false
     @State private var showHandlersGuide = false
     @State private var showFileSearch = false
+    @State private var showHistory = false
+    @ObservedObject private var journal = OperationJournal.shared
     @State private var showDebugLog = false
     @State private var showGemmaColumn = false
     @State private var compactFunctionChip = false
@@ -381,6 +383,30 @@ struct DualPaneView: View {
     private var inactivePane: PaneViewModel { selected == 0 ? right : left }
 
     /// Publishes the active pane's actions to the TC-style menu bar.
+    /// Cmd+Z: while a text field is being edited, the standard
+    /// text undo wins; everywhere else Cmd+Z rewinds the journal.
+    private func performUndo() {
+        if NSApp.keyWindow?.firstResponder is NSText {
+            NSApp.keyWindow?.undoManager?.undo()
+            return
+        }
+        guard let report = journal.undoLatest() else { return }
+        activePane.lastOperationSummary = report.summary
+        activePane.refresh()
+        inactivePane.refresh()
+    }
+
+    private func performRedo() {
+        if NSApp.keyWindow?.firstResponder is NSText {
+            NSApp.keyWindow?.undoManager?.redo()
+            return
+        }
+        guard let report = journal.redoLatest() else { return }
+        activePane.lastOperationSummary = report.summary
+        activePane.refresh()
+        inactivePane.refresh()
+    }
+
     private func syncMenuBridge() {
         let bridge = AppMenuBridge.shared
         bridge.hasSelection = !activePane.selection.isEmpty
@@ -412,6 +438,13 @@ struct DualPaneView: View {
             if store.isProUnlocked { showBatchRename = true } else { showPaywall = true }
         }
         bridge.focusFilter = { activePane.focusSearch() }
+        bridge.canUndo = journal.canUndo
+        bridge.canRedo = journal.canRedo
+        bridge.undoTitle = journal.nextUndoTitle.map { "Undo \($0)" } ?? "Undo"
+        bridge.redoTitle = journal.nextRedoTitle.map { "Redo \($0)" } ?? "Redo"
+        bridge.undo = { performUndo() }
+        bridge.redo = { performRedo() }
+        bridge.showHistory = { showHistory = true }
         bridge.findFiles = { showFileSearch = true }
         bridge.setListView = { activePane.viewMode = .list }
         bridge.setIconView = { activePane.viewMode = .icon }
@@ -504,6 +537,7 @@ struct DualPaneView: View {
         }
         .onChange(of: activePane.selection) { _, _ in syncMenuBridge() }
         .onChange(of: activePane.currentURL) { _, _ in syncMenuBridge() }
+        .onChange(of: journal.entries) { _, _ in syncMenuBridge() }
         .sheet(isPresented: $showPaywall) { PaywallView() }
         .sheet(isPresented: $showPermissions) {
             if let url = activePane.selection.first {
@@ -516,6 +550,13 @@ struct DualPaneView: View {
         }
         .sheet(isPresented: $showHandlersGuide) {
             FileHandlersSettingsView()
+        }
+        .sheet(isPresented: $showHistory) {
+            OperationHistoryView { summary in
+                activePane.lastOperationSummary = summary
+                activePane.refresh()
+                inactivePane.refresh()
+            }
         }
         .sheet(isPresented: $showDebugLog) {
             DebugLogView()

@@ -50,6 +50,9 @@ public enum FileActionService {
         guard process.terminationStatus == 0 else {
             throw FileActionError.processFailed("Compression failed (ditto exit \(process.terminationStatus))")
         }
+        var record = OperationRecord(kind: .createFile, title: "Created \(archive.lastPathComponent)")
+        record.created = [archive.path]
+        OperationJournal.shared.record(record)
         return archive
     }
 
@@ -61,6 +64,9 @@ public enum FileActionService {
         let hex = try md5Hex(of: url)
         let checksumURL = url.appendingPathExtension("md5")
         try "\(hex)  \(url.lastPathComponent)\n".write(to: checksumURL, atomically: true, encoding: .utf8)
+        var record = OperationRecord(kind: .createFile, title: "Created \(checksumURL.lastPathComponent)")
+        record.created = [checksumURL.path]
+        OperationJournal.shared.record(record)
         return checksumURL
     }
 
@@ -106,12 +112,22 @@ public enum FileActionService {
     @discardableResult
     public static func batchRename(items: [URL], rule: BatchRenameRule) throws -> Int {
         var count = 0
+        var pairs: [JournalMove] = []
         for (index, url) in items.enumerated() {
             let newName = renamedName(for: url, rule: rule, index: index)
             if newName != url.lastPathComponent {
-                _ = try ArchiveService.rename(item: url, to: newName)
+                // ArchiveService.rename journals each rename; batch
+                // rename journals one combined entry instead.
+                let target = url.deletingLastPathComponent().appendingPathComponent(newName)
+                try TwinCore.fileCoordinator.moveItem(at: url, to: target)
+                pairs.append(JournalMove(from: url, to: target))
                 count += 1
             }
+        }
+        if count > 0 {
+            var record = OperationRecord(kind: .batchRename, title: "Batch renamed \(count) file(s)")
+            record.moves = pairs
+            OperationJournal.shared.record(record)
         }
         return count
     }
@@ -156,15 +172,30 @@ public enum FileActionService {
     public static func organize(items: [URL], in directory: URL) throws -> [FileCategory: Int] {
         let plan = organizePlan(items: items)
         var moved: [FileCategory: Int] = [:]
+        var pairs: [JournalMove] = []
+        var createdFolders: [String] = []
         for (category, files) in plan {
             let folder = directory.appendingPathComponent(category.rawValue)
+            if !FileManager.default.fileExists(atPath: folder.path) {
+                createdFolders.append(folder.path)
+            }
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             for file in files {
                 let target = folder.appendingPathComponent(file.lastPathComponent)
                 if FileManager.default.fileExists(atPath: target.path) { continue }
                 try TwinCore.fileCoordinator.moveItem(at: file, to: target)
+                pairs.append(JournalMove(from: file, to: target))
                 moved[category, default: 0] += 1
             }
+        }
+        if !pairs.isEmpty {
+            let total = moved.values.reduce(0, +)
+            var record = OperationRecord(
+                kind: .organize,
+                title: "Organized \(total) file(s) in \(directory.lastPathComponent)")
+            record.moves = pairs
+            record.createdFolders = createdFolders
+            OperationJournal.shared.record(record)
         }
         return moved
     }
@@ -172,8 +203,18 @@ public enum FileActionService {
     // MARK: - Trash (F8 in Total Commander — never hard delete)
 
     public static func trash(items: [URL]) throws {
+        var pairs: [JournalMove] = []
         for item in items {
-            try FileManager.default.trashItem(at: item, resultingItemURL: nil)
+            var resulting: NSURL?
+            try FileManager.default.trashItem(at: item, resultingItemURL: &resulting)
+            if let resultingURL = resulting as URL? {
+                pairs.append(JournalMove(from: item, to: resultingURL))
+            }
+        }
+        if !pairs.isEmpty {
+            var record = OperationRecord(kind: .trash, title: "Moved \(pairs.count) item(s) to Trash")
+            record.trashed = pairs
+            OperationJournal.shared.record(record)
         }
     }
 
@@ -192,6 +233,9 @@ public enum FileActionService {
         guard let combined = sealed.combined else { throw FileActionError.wrongPassphrase }
         let output = file.appendingPathExtension(encryptedExtension)
         try combined.write(to: output)
+        var record = OperationRecord(kind: .createFile, title: "Encrypted \(file.lastPathComponent)")
+        record.created = [output.path]
+        OperationJournal.shared.record(record)
         return output
     }
 
@@ -208,6 +252,9 @@ public enum FileActionService {
                     .appendingPathExtension(file.deletingPathExtension().pathExtension)
             }
             try plain.write(to: output)
+            var record = OperationRecord(kind: .createFile, title: "Decrypted \(file.lastPathComponent)")
+            record.created = [output.path]
+            OperationJournal.shared.record(record)
             return output
         } catch {
             throw FileActionError.wrongPassphrase

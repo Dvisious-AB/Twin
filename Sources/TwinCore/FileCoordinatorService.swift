@@ -157,6 +157,7 @@ public final class FileCoordinatorService: @unchecked Sendable {
                     var bytesDone: UInt64 = 0
                     var done = 0
                     var skipped = 0
+                    var completedMoves: [JournalMove] = []
                     for (index, url) in urls.enumerated() {
                         try Task.checkCancellation()
                         let destination = directory.appendingPathComponent(url.lastPathComponent)
@@ -166,6 +167,7 @@ public final class FileCoordinatorService: @unchecked Sendable {
                         } else if move {
                             try self.moveItem(at: url, to: destination)
                             done += 1
+                            completedMoves.append(JournalMove(from: url, to: destination))
                             bytesDone += itemBytes[index]
                         } else {
                             let base = bytesDone
@@ -178,6 +180,7 @@ public final class FileCoordinatorService: @unchecked Sendable {
                                 ))
                             }, isCancelled: { Task.isCancelled })
                             done += 1
+                            completedMoves.append(JournalMove(from: url, to: destination))
                             bytesDone += itemBytes[index]
                         }
                         continuation.yield(.progress(
@@ -186,6 +189,13 @@ public final class FileCoordinatorService: @unchecked Sendable {
                             bytesTotal: bytesTotal,
                             currentItem: url.lastPathComponent
                         ))
+                    }
+                    if done > 0 {
+                        var record = OperationRecord(
+                            kind: move ? .move : .copy,
+                            title: "\(move ? "Moved" : "Copied") \(done) item(s) to \(directory.lastPathComponent)")
+                        record.moves = completedMoves
+                        OperationJournal.shared.record(record)
                     }
                     continuation.yield(.finished(done: done, skipped: skipped))
                     continuation.finish()

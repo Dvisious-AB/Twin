@@ -34,6 +34,9 @@ public enum ArchiveService {
             throw ArchiveError.alreadyExists(folderName)
         }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        var record = OperationRecord(kind: .createFolder, title: "Created folder \(folderName)")
+        record.created = [folder.path]
+        OperationJournal.shared.record(record)
         return folder
     }
 
@@ -48,6 +51,10 @@ public enum ArchiveService {
             throw ArchiveError.alreadyExists(name)
         }
         try TwinCore.fileCoordinator.moveItem(at: item, to: target)
+        var record = OperationRecord(
+            kind: .rename, title: "Renamed \(item.lastPathComponent) to \(name)")
+        record.moves = [JournalMove(from: item, to: target)]
+        OperationJournal.shared.record(record)
         return target
     }
 
@@ -73,6 +80,9 @@ public enum ArchiveService {
         guard process.terminationStatus == 0 else {
             throw ArchiveError.failed("Unpack failed (ditto exit \(process.terminationStatus))")
         }
+        var record = OperationRecord(kind: .unpack, title: "Unpacked \(archive.lastPathComponent)")
+        record.created = [folder.path]
+        OperationJournal.shared.record(record)
         return folder
     }
 
