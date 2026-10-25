@@ -5,14 +5,14 @@ on:
   pull_request:
 jobs:
   build:
-    runs-on: macos-15
+    # Self-hosted runner on the dev Mac (label: twin): same macOS
+    # and environment as real use, no hosted-runner AX quirks.
+    # UI tests open real windows on that machine while CI runs.
+    runs-on: [self-hosted, twin]
     steps:
       - uses: actions/checkout@v4
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
       - name: Install tools
-        run: brew install xcodegen swiftlint
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen; brew list swiftlint >/dev/null 2>&1 || brew install swiftlint
       - name: SwiftLint
         run: swiftlint lint --strict
       - name: Generate project
