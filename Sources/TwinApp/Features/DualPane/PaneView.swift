@@ -346,7 +346,7 @@ struct PaneView: View {
         Table(sortedItems, selection: $viewModel.selection, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.name) { item in
                 HStack(spacing: 6) {
-                    FileItemIcon(item: item)
+                    FileItemIcon(item: item, folderKind: viewModel.folderKinds[item.url.path] ?? .generic)
                     Text(highlightedName(for: item))
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -440,7 +440,7 @@ struct PaneView: View {
             LazyVGrid(columns: iconColumns, spacing: 14) {
                 ForEach(sortedItems, id: \.url) { item in
                     VStack(spacing: 4) {
-                        FileItemIcon(item: item, size: 32)
+                        FileItemIcon(item: item, size: 32, folderKind: viewModel.folderKinds[item.url.path] ?? .generic)
                         Text(item.name)
                             .font(.caption)
                             .lineLimit(2)

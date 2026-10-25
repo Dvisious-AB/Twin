@@ -687,3 +687,27 @@ final class AssistantFindTests: XCTestCase {
         XCTAssertFalse(results.contains { $0.match.url.lastPathComponent == "notes.txt" })
     }
 }
+
+final class FolderKindTests: XCTestCase {
+    func testMarkerClassification() {
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Twin", contents: [".git", "README.md"]), .git)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "App", contents: ["App.xcodeproj", "Sources"]), .xcodeProject)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Lib", contents: ["Package.swift"]), .swiftPackage)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "web", contents: ["package.json", "src"]), .node)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "svc", contents: ["Cargo.toml"]), .rust)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "svc", contents: ["go.mod"]), .go)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "infra", contents: ["Dockerfile"]), .docker)
+    }
+
+    func testNameAndMajorityClassification() {
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Bilder", contents: []), .pictures)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Skrivbord", contents: []), .desktop)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Samples", contents: []), .samples)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Drums", contents: ["a.wav", "b.wav", "c.txt"]), .music)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Sample Pack 2026", contents: ["a.wav", "b.wav", "c.wav"]), .samples)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Snaps", contents: ["a.jpg", "b.heic", "c.png"]), .pictures)
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "Random", contents: ["a.txt"]), .generic)
+        // A repo of images is a repo, not a picture folder.
+        XCTAssertEqual(FolderKindClassifier.classify(folderName: "site", contents: [".git", "a.jpg", "b.jpg", "c.jpg"]), .git)
+    }
+}

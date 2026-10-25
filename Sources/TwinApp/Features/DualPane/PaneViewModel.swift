@@ -59,6 +59,8 @@ final class PaneViewModel: ObservableObject {
     @Published var isSearchFieldVisible = false
     @Published var lastOperationSummary: String?
     @Published var directorySizes: [String: UInt64] = [:]
+    /// Semantic folder kinds (.git, Package.swift, Samples…) for icons.
+    @Published var folderKinds: [String: FolderKind] = [:]
     @Published var gitBadges: [String: GitStatusService.Badge] = [:]
     @Published var insights: FolderInsightsService.Insights?
     private var backHistory: [URL] = []
@@ -198,8 +200,28 @@ final class PaneViewModel: ObservableObject {
             selection = [first.url]
         }
         computeDirectorySizes()
+        computeFolderKinds()
         refreshGitBadges()
         refreshInsights()
+    }
+
+    /// Classifies visible folders from markers/names/contents so
+    /// their icons say what they are (.git, Swift package, samples).
+    private func computeFolderKinds() {
+        let folders = items.filter { $0.isDirectory }.map(\.url)
+        guard !folders.isEmpty else { return }
+        let already = folderKinds
+        Task.detached(priority: .utility) {
+            var found: [String: FolderKind] = [:]
+            for folder in folders where already[folder.path] == nil {
+                let kind = FolderKindClassifier.classify(url: folder)
+                if kind != .generic { found[folder.path] = kind }
+            }
+            guard !found.isEmpty else { return }
+            await MainActor.run { [weak self] in
+                self?.folderKinds.merge(found) { _, new in new }
+            }
+        }
     }
 
     /// Proactive folder analysis (orphans, risks, oversized) off the main thread.
