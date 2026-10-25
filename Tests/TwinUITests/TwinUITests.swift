@@ -434,3 +434,64 @@ extension TwinUITests {
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Archive.zip").path))
     }
 }
+
+extension TwinUITests {
+    // Organize via Gemma: type the wish, see the plan, Run — the
+    // loose files land in category folders on disk and in the pane.
+    func testGemmaBarOrganizesFolder() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinOrganizeFixture")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        for (name, body) in [("photo.jpg", "img"), ("notes.txt", "text"), ("song.mp3", "audio")] {
+            try body.write(to: folder.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+
+        let encoded = folder.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? folder.path
+        let deepLink = try XCTUnwrap(URL(string: "twin://open?path=\(encoded)"))
+        terminateStrayTwins()
+        var delivered = false
+        for _ in 0..<5 where !delivered {
+            delivered = NSWorkspace.shared.open(deepLink)
+            if !delivered { Thread.sleep(forTimeInterval: 1) }
+        }
+        XCTAssertTrue(delivered)
+
+        // Scope to the fixture window (restored windows duplicate UI).
+        var fixtureWindow: XCUIElement?
+        for index in 0..<app.windows.count {
+            let candidate = app.windows.element(boundBy: index)
+            if candidate.staticTexts.matching(
+                NSPredicate(format: "label == %@ OR value == %@", "photo.jpg", "photo.jpg")).firstMatch.exists {
+                fixtureWindow = candidate
+                break
+            }
+        }
+        let window = try XCTUnwrap(fixtureWindow, "No window shows the fixture folder")
+        window.click()
+        let field = window.textFields["gemmaBarField"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.click()
+        field.typeText("organisera den här mappen\n")
+
+        // Plan first: nothing moved yet.
+        let runButton = window.buttons["gemmaRunButton"].firstMatch
+        XCTAssertTrue(runButton.waitForExistence(timeout: 10))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: folder.appendingPathComponent("Images").path))
+        runButton.click()
+
+        // Files moved into category folders, on disk and in the pane.
+        let imagesText = window.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@", "Images", "Images")).firstMatch
+        XCTAssertTrue(imagesText.waitForExistence(timeout: 20))
+        for (file, category) in [("photo.jpg", "Images"), ("notes.txt", "Documents"), ("song.mp3", "Audio")] {
+            XCTAssertTrue(FileManager.default.fileExists(
+                atPath: folder.appendingPathComponent("\(category)/\(file)").path),
+                          "\(file) should be in \(category)/")
+            XCTAssertFalse(FileManager.default.fileExists(
+                atPath: folder.appendingPathComponent(file).path),
+                           "\(file) should no longer be loose")
+        }
+    }
+}
