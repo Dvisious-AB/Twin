@@ -10,6 +10,7 @@ struct AssistantView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var chat = AssistantChat()
     @State private var draft = ""
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,13 +35,20 @@ struct AssistantView: View {
             statusBar
         }
         .frame(width: 500, height: 640)
+        // The question field has focus the moment the assistant
+        // opens — start typing immediately, no click needed.
+        .onAppear { inputFocused = true }
     }
 
     private var header: some View {
-        HStack {
-            Image(systemName: "sparkles").foregroundStyle(.purple)
+        HStack(spacing: 10) {
+            GemmaRobotView(state: chat.isThinking ? .thinking : .idle, size: 46)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Twin Assistant").font(.headline)
+                HStack(spacing: 6) {
+                    Text("Gemma").font(.headline)
+                    Text("Twin Assistant")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Text(viewModel.currentURL.path)
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
@@ -211,6 +219,7 @@ struct AssistantView: View {
         HStack(spacing: 8) {
             TextField("Ask how to do something in Twin…", text: $draft)
                 .textFieldStyle(.roundedBorder)
+                .focused($inputFocused)
                 .onSubmit { send(draft) }
             Button("Ask") { send(draft) }
                 .buttonStyle(.borderedProminent)
@@ -239,6 +248,20 @@ struct AssistantView: View {
         draft = ""
         // Task execution: kartotek/catalog commands run immediately.
         let lowered = question.lowercased()
+        if lowered.contains("organisera") || lowered.contains("organize")
+            || lowered.contains("sort this") || lowered.contains("sortera") {
+            let plan = viewModel.organizePlanSummary
+            if plan.isEmpty {
+                chat.appendExchange(user: question, assistant: "There are no loose files to sort in "
+                    + "\(viewModel.currentURL.lastPathComponent) — folders and sorted files stay where they are.")
+            } else {
+                viewModel.organizeFolder()
+                let detail = plan.map { "\($0.count) \($0.category.lowercased())" }.joined(separator: ", ")
+                chat.appendExchange(user: question, assistant: "Done — sorted the loose files in "
+                    + "\(viewModel.currentURL.lastPathComponent) into folders (\(detail)). Moved, not copied — nothing was deleted.")
+            }
+            return
+        }
         if lowered.contains("kartotek") || lowered.contains("catalog") || lowered.contains("index") {
             if let path = viewModel.buildCatalog() {
                 chat.appendExchange(user: question, assistant: "Done — I created the catalog at \(path). It lists every file with" +
@@ -246,6 +269,8 @@ struct AssistantView: View {
                 return
             }
         }
-        chat.send(question, folder: viewModel.currentURL, folderSummary: FolderSummary.summary(for: viewModel))
+        chat.send(question, folder: viewModel.currentURL,
+                  folderSummary: FolderSummary.summary(for: viewModel),
+                  facts: FolderSummary.facts(for: viewModel))
     }
 }

@@ -12,6 +12,9 @@ struct FileItem: Identifiable, Hashable {
     let isDirectory: Bool
     let size: UInt64
     let modifiedDate: Date
+    /// Last-used date + owner feed the Assistant's folder facts.
+    var accessedDate: Date?
+    var owner: String?
 }
 
 enum PaneViewMode: String, CaseIterable, Identifiable {
@@ -174,13 +177,18 @@ final class PaneViewModel: ObservableObject {
             return
         }
         items = contents.compactMap { url in
-            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
+            let values = try? url.resourceValues(forKeys: [
+                .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .contentAccessDateKey
+            ])
+            let owner = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.ownerAccountName] as? String
             return FileItem(
                 url: url,
                 name: url.lastPathComponent,
                 isDirectory: values?.isDirectory ?? false,
                 size: UInt64(values?.fileSize ?? 0),
-                modifiedDate: values?.contentModificationDate ?? .distantPast
+                modifiedDate: values?.contentModificationDate ?? .distantPast,
+                accessedDate: values?.contentAccessDate,
+                owner: owner
             )
         }
         .sorted { a, b in a.isDirectory != b.isDirectory ? a.isDirectory : a.name.lowercased() < b.name.lowercased() }

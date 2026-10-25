@@ -19,8 +19,8 @@ final class AssistantChat: ObservableObject {
     @Published var messages: [Message] = [
         Message(
             isUser: false,
-            text: "Hi! I can explain how to do file tasks in Twin — copying, sorting, permissions, encryption and more. Ask below," +
-                "or tap a suggestion."
+            text: "Hi, I'm Gemma! I can explain how to do file tasks in Twin — copying, sorting, permissions, encryption " +
+                "and more. I can also answer questions about this folder (biggest file, owners, dates) and sort it for you."
         )
     ]
     @Published var isThinking = false
@@ -89,19 +89,25 @@ final class AssistantChat: ObservableObject {
         sessionBox = nil
     }
 
-    func send(_ rawQuestion: String, folder: URL, folderSummary: String) {
+    func send(_ rawQuestion: String, folder: URL, folderSummary: String, facts: FolderFacts? = nil) {
         let question = rawQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isThinking else { return }
         messages.append(Message(isUser: true, text: question))
         isThinking = true
         Task {
-            let reply = await answer(question: question, folder: folder, folderSummary: folderSummary)
+            let reply = await answer(question: question, folder: folder, folderSummary: folderSummary, facts: facts)
             messages.append(Message(isUser: false, text: reply))
             isThinking = false
         }
     }
 
-    private func answer(question: String, folder: URL, folderSummary: String) async -> String {
+    private func answer(question: String, folder: URL, folderSummary: String,
+                        facts: FolderFacts?) async -> String {
+        // Factual questions about *this* folder are answered from
+        // the real listing — the model never guesses sizes/dates.
+        if let factAnswer = facts?.answer(to: question) {
+            return factAnswer
+        }
         if let modelReply = await modelAnswer(question: question, folder: folder, folderSummary: folderSummary) {
             return modelReply
         }
@@ -117,8 +123,10 @@ final class AssistantChat: ObservableObject {
                     session = existing
                 } else {
                     let created = LanguageModelSession(
-                        instructions: "You are Twin's built-in help assistant. Answer briefly, in the user's language when you can" +
-                            "tell it, with concrete steps and Twin's shortcuts. Manual:\n\(TwinHelp.manual)"
+                        instructions: "You are Twin's built-in help assistant, named Gemma. The computer's language is "
+                            + "\(TwinLanguage.currentName) — always answer in that language. Answer briefly, with concrete "
+                            + "steps and Twin's shortcuts. Use the folder facts given in the prompt for size/date/owner "
+                            + "questions; never invent file names or sizes. Manual:\n\(TwinHelp.manual)"
                     )
                     sessionBox = created
                     session = created
@@ -134,7 +142,8 @@ final class AssistantChat: ObservableObject {
     }
 }
 
-/// One-line folder context for the assistant (counts by category).
+/// Folder context for the assistant: category counts plus the
+/// grounded FolderFacts (sizes, dates, owners) from the listing.
 enum FolderSummary {
     @MainActor
     static func summary(for viewModel: PaneViewModel) -> String {
@@ -143,5 +152,21 @@ enum FolderSummary {
         let files = viewModel.items.count - folders
         let categories = plan.map { "\($0.count) \($0.category.lowercased())" }.joined(separator: ", ")
         return "\(folders) folders, \(files) files" + (categories.isEmpty ? "" : " (\(categories))")
+            + " " + facts(for: viewModel).contextSummary(folderName: viewModel.currentURL.lastPathComponent)
+    }
+
+    @MainActor
+    static func facts(for viewModel: PaneViewModel) -> FolderFacts {
+        FolderFacts(files: viewModel.items.map { item in
+            FolderFacts.FileFact(
+                name: item.name,
+                isDirectory: item.isDirectory,
+                sizeBytes: item.isDirectory
+                    ? (viewModel.directorySizes[item.url.path] ?? 0)
+                    : item.size,
+                modified: item.modifiedDate,
+                accessed: item.accessedDate,
+                owner: item.owner)
+        })
     }
 }

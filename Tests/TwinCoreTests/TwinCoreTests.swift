@@ -592,3 +592,55 @@ final class DebugLogTests: XCTestCase {
         XCTAssertTrue(text.contains("entry number 39"))
     }
 }
+
+final class FolderFactsTests: XCTestCase {
+    private func facts() -> FolderFacts {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        return FolderFacts(files: [
+            FolderFacts.FileFact(name: "small.txt", isDirectory: false, sizeBytes: 10,
+                                 modified: now, accessed: now, owner: "anders"),
+            FolderFacts.FileFact(name: "movie.mp4", isDirectory: false, sizeBytes: 900_000,
+                                 modified: now.addingTimeInterval(-1000),
+                                 accessed: now.addingTimeInterval(5000), owner: "anders"),
+            FolderFacts.FileFact(name: "notes.md", isDirectory: false, sizeBytes: 100,
+                                 modified: now.addingTimeInterval(9000),
+                                 accessed: now.addingTimeInterval(-5000), owner: "maria")
+        ])
+    }
+
+    func testLargestAnswer() {
+        let answer = facts().answer(to: "vilken fil tar störst plats?")
+        XCTAssertTrue(answer?.contains("movie.mp4") == true)
+        XCTAssertTrue(facts().answer(to: "which file is the largest?")?.contains("movie.mp4") == true)
+    }
+
+    func testLastUsedAndOwnerAnswers() {
+        XCTAssertTrue(facts().answer(to: "när användes en fil senast?")?.contains("movie.mp4") == true)
+        let owners = facts().answer(to: "vem skapade filerna?")
+        XCTAssertTrue(owners?.contains("anders") == true)
+        XCTAssertTrue(owners?.contains("maria") == true)
+    }
+
+    func testNonFactQuestionReturnsNil() {
+        XCTAssertNil(facts().answer(to: "How do I encrypt a file?"))
+        XCTAssertTrue(facts().contextSummary(folderName: "Docs").contains("Largest: movie.mp4"))
+    }
+}
+
+final class TwinLanguageTests: XCTestCase {
+    func testLanguageDetection() {
+        XCTAssertEqual(TwinLanguage.code(from: "sv-SE"), "sv")
+        XCTAssertEqual(TwinLanguage.code(from: "en-US"), "en")
+        XCTAssertEqual(TwinLanguage.code(from: nil), "en")
+        XCTAssertEqual(TwinLanguage.code(from: ""), "en")
+    }
+
+    func testSwedishHelpAnswers() {
+        let sv = TwinHelp.answer(to: "hur krypterar jag en fil?", languageCode: "sv")
+        XCTAssertTrue(sv.contains("lösenfras"))
+        let en = TwinHelp.answer(to: "how do I encrypt a file?", languageCode: "en")
+        XCTAssertTrue(en.contains("passphrase"))
+        XCTAssertTrue(TwinHelp.answer(to: "zz okänt ämne", languageCode: "sv").contains("Jag svarar"))
+        XCTAssertTrue(TwinHelp.answer(to: "zz unknown topic", languageCode: "de").contains("I answer"))
+    }
+}

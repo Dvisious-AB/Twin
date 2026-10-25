@@ -317,3 +317,61 @@ extension TwinUITests {
         XCTAssertTrue(revealed.waitForExistence(timeout: 15))
     }
 }
+
+extension TwinUITests {
+    // Gemma: the assistant opens with keyboard focus in the question
+    // field and answers folder facts from the real listing.
+    func testGemmaFocusAndFolderFacts() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinAssistantFixture")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data(count: 6000).write(to: folder.appendingPathComponent("a-big.bin"))
+        try "tiny".write(to: folder.appendingPathComponent("b-small.txt"),
+                         atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        let encoded = folder.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? folder.path
+        let deepLink = try XCTUnwrap(URL(string: "twin://open?path=\(encoded)"))
+        terminateStrayTwins()
+        var delivered = false
+        for _ in 0..<5 where !delivered {
+            delivered = NSWorkspace.shared.open(deepLink)
+            if !delivered { Thread.sleep(forTimeInterval: 1) }
+        }
+        XCTAssertTrue(delivered)
+        let fileText = app.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@", "a-big.bin", "a-big.bin")).firstMatch
+        XCTAssertTrue(fileText.waitForExistence(timeout: 15))
+
+        // Open via the function bar's More menu (type-agnostic hunt,
+        // same as the encryption assistant test).
+        var more: XCUIElement?
+        let deadline = Date().addingTimeInterval(30)
+        while more == nil, Date() < deadline {
+            more = [app.menuButtons, app.popUpButtons, app.buttons]
+                .map { $0.matching(NSPredicate(format: "title == 'More' OR label == 'More'")).firstMatch }
+                .first { $0.exists }
+            if more == nil { Thread.sleep(forTimeInterval: 1) }
+        }
+        try XCTUnwrap(more).click()
+        let assistantItem = app.menuItems
+            .matching(NSPredicate(format: "title == 'Assistant…'")).firstMatch
+        XCTAssertTrue(assistantItem.waitForExistence(timeout: 30))
+        assistantItem.click()
+
+        // Gemma is present by name...
+        XCTAssertTrue(app.staticTexts["Gemma"].waitForExistence(timeout: 15))
+        // ...and the question field already has keyboard focus:
+        // typing without any click must land in the field.
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        app.typeText("vilken fil tar störst plats?")
+        let typed = field.value as? String ?? ""
+        XCTAssertTrue(typed.contains("störst"), "Typing should land in the focused field, got: \(typed)")
+        app.typeText("\n")
+        let answer = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "a-big.bin", "a-big.bin")
+        ).firstMatch
+        XCTAssertTrue(answer.waitForExistence(timeout: 30))
+    }
+}
