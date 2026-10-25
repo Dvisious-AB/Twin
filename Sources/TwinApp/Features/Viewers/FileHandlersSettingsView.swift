@@ -271,7 +271,6 @@ struct FileHandlersSettingsView: View {
 
     private var customHandlersSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Build your own viewer/editor").font(.subheadline.bold())
             Text("En egen handler är ett program eller ett kommando som får filen. "
                 + "Exempel-kommando: /usr/local/bin/hexfiend {file} — {file} byts mot filsökvägen.")
                 .font(.caption2).foregroundStyle(.secondary)
