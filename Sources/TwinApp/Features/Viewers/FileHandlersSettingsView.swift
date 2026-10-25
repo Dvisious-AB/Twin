@@ -155,7 +155,8 @@ struct FileHandlersSettingsView: View {
                 GroupBox("Edit & Open — F4 and Enter") {
                     VStack(alignment: .leading, spacing: 6) {
                         choicePicker(title: "", pick: $editorPick, app: $editorApp)
-                        Text("Enter and double-click follow the editor choice. That is how you override the macOS default app — inside Twin.")
+                        Text("Enter and double-click follow the editor choice." +
+                            " That is how you override the macOS default app — inside Twin.")
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
