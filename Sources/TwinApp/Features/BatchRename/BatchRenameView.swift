@@ -14,6 +14,7 @@ struct BatchRenameView: View {
     @State private var suffix = ""
     @State private var numbering = false
     @State private var errorText: String?
+    @FocusState private var findFocused: Bool
 
     private var rule: FileActionService.BatchRenameRule {
         var rule = FileActionService.BatchRenameRule()
@@ -28,12 +29,15 @@ struct BatchRenameView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Batch Rename").font(.title3.bold())
+                .onAppear { findFocused = true }
             Text("\(items.count) item(s) selected").font(.caption).foregroundStyle(.secondary)
 
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                 GridRow {
                     Text("Find")
-                    TextField("text to replace", text: $find).textFieldStyle(.roundedBorder)
+                    TextField("text to replace", text: $find)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($findFocused)
                     Text("Replace")
                     TextField("with", text: $replace).textFieldStyle(.roundedBorder)
                 }

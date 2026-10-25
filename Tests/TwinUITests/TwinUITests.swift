@@ -6,9 +6,17 @@ import XCTest
 /// public UI (clicks, keys, shortcuts), never internal state.
 final class TwinUITests: XCTestCase {
     private var app: XCUIApplication!
+    /// PID of the instance this test launched. Deep links and
+    /// Launch Services can spawn sibling instances (another build
+    /// of the same bundle id); without lifecycle discipline they
+    /// accumulate across tests and swallow deep links/clicks.
+    private var testPID: pid_t = 0
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        // Start from zero: no Twin from an earlier test (or a deep
+        // link it spawned) may survive into this one.
+        killAllTwins()
         app = XCUIApplication()
         app.launchArguments = ["-twin.didPickStartFolder", "YES"]
         // Under heavy machine load the first launch can fail with
@@ -20,27 +28,42 @@ final class TwinUITests: XCTestCase {
             Thread.sleep(forTimeInterval: 3)
             app.launch()
         }
+        // The instance we just launched is the newest one.
+        testPID = NSRunningApplication.runningApplications(
+            withBundleIdentifier: "se.dvisious.twin")
+            .max { ($0.launchDate ?? .distantPast) < ($1.launchDate ?? .distantPast) }?
+            .processIdentifier ?? 0
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
         terminateStrayTwins()
+    }
+
+    private func allTwins() -> [NSRunningApplication] {
+        NSRunningApplication.runningApplications(withBundleIdentifier: "se.dvisious.twin")
+    }
+
+    /// Kills every Twin instance and waits until none remain.
+    func killAllTwins() {
+        for twin in allTwins() { twin.forceTerminate() }
+        for _ in 0..<20 where !allTwins().isEmpty {
+            Thread.sleep(forTimeInterval: 0.25)
+        }
     }
 
     /// twin:// deep links are routed by Launch Services to *some*
     /// Twin instance — a stray instance left by a scheme launch in
     /// an earlier test would swallow them. Kill every Twin except
-    /// the one under test.
+    /// the one this test launched (testPID).
     func terminateStrayTwins() {
-        // Keep the most recently launched instance (the one setUp
-        // just started); kill every older Twin.
-        let twins = NSRunningApplication.runningApplications(
-            withBundleIdentifier: "se.dvisious.twin")
-            .sorted { ($0.launchDate ?? .distantPast) < ($1.launchDate ?? .distantPast) }
-        for stray in twins.dropLast() {
-            stray.forceTerminate()
+        for twin in allTwins() where twin.processIdentifier != testPID {
+            twin.forceTerminate()
         }
     }
 
     override func tearDownWithError() throws {
         app.terminate()
+        // Also kill siblings this test may have spawned via deep
+        // links, so the next test starts from zero instances.
+        killAllTwins()
         app = nil
     }
 
@@ -268,8 +291,9 @@ extension TwinUITests {
         let item = app.menuBars.menuItems["File Type Handlers…"]
         XCTAssertTrue(item.waitForExistence(timeout: 10))
         item.click()
-        XCTAssertTrue(app.staticTexts["1. Choose a file type"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["2. View (F3) — visar filen"].exists)
+        XCTAssertTrue(app.staticTexts["FILE TYPES"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["View — F3 shows the file"].exists)
+        XCTAssertTrue(app.staticTexts["Edit & Open — F4 and Enter"].exists)
         XCTAssertTrue(app.buttons["Save"].exists)
         XCTAssertTrue(app.buttons["Add Custom Handler"].exists)
         app.buttons["Done"].click()

@@ -22,6 +22,7 @@ struct FileSearchView: View {
     @State private var hasSearched = false
     @State private var selectedResult: String?
     @State private var searchTask: Task<Void, Never>?
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +45,7 @@ struct FileSearchView: View {
                     Text("Name contains")
                     TextField("e.g. invoice (empty = all)", text: $nameText)
                         .textFieldStyle(.roundedBorder)
+                        .focused($nameFocused)
                         .accessibilityIdentifier("searchNameField")
                         .onSubmit(runSearch)
                 }
@@ -79,6 +81,9 @@ struct FileSearchView: View {
             statusLine
         }
         .frame(minWidth: 640, minHeight: 520)
+        // Design manual: the form's standard field (name) has
+        // focus the moment the sheet opens.
+        .onAppear { nameFocused = true }
     }
 
     @ViewBuilder

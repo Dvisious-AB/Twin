@@ -31,66 +31,150 @@ struct FileHandlersSettingsView: View {
     private var store: FileHandlerStore { .shared }
     private var kind: FileKind { FileTypeRegistry.kind(forExtension: selectedExt) }
 
+    @FocusState private var typeFieldFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "wrench.and.screwdriver")
                 Text("File Type Handlers").font(.headline)
+                Text("Connect a file type to a viewer or editor — Twin follows your choice, not macOS'.")
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
             .padding(12)
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    step1Type
-                    step2Viewer
-                    step3Editor
-                    summaryAndSave
-                    customHandlersSection
-                    macDefaultSection
+            HStack(spacing: 0) {
+                typeSidebar
+                Divider()
+                detailPane
+            }
+            Divider()
+            // Sticky summary + save (design manual: primary action
+            // bottom-right, summary always visible while choosing).
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(summaryText).font(.callout).lineLimit(2)
                     if let status {
-                        Text(status).font(.caption).foregroundStyle(.secondary)
+                        Text(status).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }
-                .padding(16)
+                Spacer()
+                Button("Reset .\(selectedExt)") {
+                    store.setAssociation(FileTypeAssociation(), forExtension: selectedExt)
+                    loadAssociation()
+                    status = ".\(selectedExt) is back to Twin/macOS defaults."
+                }
+                Button("Save") { save() }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!canSave)
+            }
+            .padding(12)
+            .background(.bar)
+        }
+        .frame(minWidth: 720, minHeight: 560)
+        .onAppear {
+            loadAssociation()
+            // Design manual: standard field (the type field) first.
+            typeFieldFocused = true
+        }
+        .onChange(of: selectedExt) { _, _ in loadAssociation() }
+    }
+
+    /// Left column: jump field + the type list. A dot marks types
+    /// with their own override.
+    private var typeSidebar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Type extension, e.g. log", text: $customExt)
+                .textFieldStyle(.roundedBorder)
+                .focused($typeFieldFocused)
+                .onSubmit { applyCustomExt() }
+                .help("Jump to an extension and press Return")
+            Text("FILE TYPES")
+                .font(.caption2.bold()).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(FileTypeRegistry.knownExtensions, id: \.self) { ext in
+                        typeRow(ext)
+                    }
+                }
             }
         }
-        .frame(minWidth: 620, minHeight: 560)
-        .onAppear { loadAssociation() }
-        .onChange(of: selectedExt) { _, _ in loadAssociation() }
+        .padding(12)
+        .frame(width: 200)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private func typeRow(_ ext: String) -> some View {
+        let isSelected = ext == selectedExt
+        let hasOverride = !(store.association(forExtension: ext).isEmpty)
+        return Button {
+            selectedExt = ext
+        } label: {
+            HStack(spacing: 6) {
+                Text(".\(ext)")
+                    .font(.callout.weight(isSelected ? .semibold : .regular))
+                Spacer()
+                Text(FileTypeRegistry.kind(forExtension: ext).label)
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if hasOverride {
+                    Circle().fill(Color.accentColor).frame(width: 6, height: 6)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Right column: what happens for the selected type, in cards.
+    private var detailPane: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 8) {
+                    Text(".\(selectedExt)")
+                        .font(.title3.bold())
+                    Text(kind.label)
+                        .font(.caption)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                    Spacer()
+                }
+                GroupBox("View — F3 shows the file") {
+                    choicePicker(title: "", pick: $viewerPick, app: $viewerApp)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                GroupBox("Edit & Open — F4 and Enter") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        choicePicker(title: "", pick: $editorPick, app: $editorApp)
+                        Text("Enter and double-click follow the editor choice. That is how you override the macOS default app — inside Twin.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                GroupBox("Build your own handler") {
+                    customHandlersSection
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                GroupBox("macOS default app") {
+                    macDefaultSection
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(16)
+        }
     }
 
     // MARK: - Step 1: file type
 
-    private var step1Type: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("1. Choose a file type").font(.subheadline.bold())
-            HStack(spacing: 8) {
-                Picker("Type", selection: $selectedExt) {
-                    ForEach(FileTypeRegistry.knownExtensions, id: \.self) { ext in
-                        Text(".\(ext) — \(FileTypeRegistry.kind(forExtension: ext).label)")
-                            .tag(ext)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 260)
-                TextField("or type: log, dat…", text: $customExt)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 130)
-                    .onSubmit { applyCustomExt() }
-                Button("Use") { applyCustomExt() }
-                    .disabled(customExt.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            let existing = store.associations
-                .filter { !$0.value.isEmpty }
-                .sorted { $0.key < $1.key }
-            if !existing.isEmpty {
-                Text("Your overrides: " + existing.map { ".\($0.key)" }.joined(separator: ", "))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-        }
-    }
 
     private func applyCustomExt() {
         let ext = FileTypeRegistry.normalizedExtension(customExt)
@@ -103,7 +187,9 @@ struct FileHandlersSettingsView: View {
 
     private func choicePicker(title: String, pick: Binding<Pick>, app: Binding<URL?>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.subheadline.bold())
+            if !title.isEmpty {
+                Text(title).font(.subheadline.bold())
+            }
             Picker(title, selection: pick) {
                 Text("Twin standard for \(kind.label)").tag(Pick.inherit)
                 Text("Twin Viewer (inbyggd)").tag(Pick.twinViewer)
@@ -150,40 +236,10 @@ struct FileHandlersSettingsView: View {
         }
     }
 
-    private var step2Viewer: some View {
-        choicePicker(title: "2. View (F3) — visar filen", pick: $viewerPick, app: $viewerApp)
-    }
 
-    private var step3Editor: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            choicePicker(title: "3. Edit / Open (F4 och Enter)", pick: $editorPick, app: $editorApp)
-            Text("Enter och dubbelklick följer editor-valet. Det är så du åsidosätter macOS standardapp — i Twin.")
-                .font(.caption2).foregroundStyle(.secondary)
-        }
-    }
 
     // MARK: - Summary + save
 
-    private var summaryAndSave: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(summaryText).font(.callout)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            HStack {
-                Button("Reset .\(selectedExt)") {
-                    store.setAssociation(FileTypeAssociation(), forExtension: selectedExt)
-                    loadAssociation()
-                    status = ".\(selectedExt) is back to Twin/macOS defaults."
-                }
-                Spacer()
-                Button("Save") { save() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canSave)
-            }
-        }
-    }
 
     private var summaryText: String {
         "F3 visar .\(selectedExt) med \(describe(viewerPick, app: viewerApp)). "
