@@ -87,6 +87,15 @@ public enum TwinHelp {
         HelpTopic(keywords: ["edit", "rediger", "text", "editor", "anteckn"],
                   answer: "Select a text file and press Cmd+E to open Twin's built-in editor. Cmd+S saves back to the same file." +
                       "Files over 2 MB or non-UTF-8 files can't be edited this way."),
+        HelpTopic(keywords: ["apple intelligence", "siri", "llm", "on-device", "modell", "model",
+                              "språk", "language", "kom igång", "setup", "installera ai", "aktivera"],
+                  answer: "Twin uses Apple's on-device model when it's available. Set it up: 1) Open System Settings ▸ " +
+                      "Apple Intelligence & Siri (just Siri in newer macOS) and turn it on / join Siri AI. 2) The model " +
+                      "downloads automatically (several GB, keep Wi-Fi and power connected). 3) Language rule: your Mac's " +
+                      "language and Siri's language must match and be a supported language — set the Mac in General ▸ " +
+                      "Language & Region and Siri under Siri ▸ Language (for example English or Svenska). 4) Twin picks " +
+                      "the model up automatically; the Assistant status line then says Apple's on-device model. Until " +
+                      "then I answer from built-in help, still fully local."),
         HelpTopic(keywords: ["find", "sök", "search", "hitta", "rekursiv", "alt+f7", "innehåll"],
                   answer: "Cmd+Shift+F (Commands ▸ Find Files) searches recursively under the active pane's folder: by file " +
                       "name and, if you fill in Text in files, inside text files too. Double-click a result to show it in " +
@@ -148,6 +157,7 @@ public enum TwinHelp {
         "How do I sort this messy folder?",
         "How do I encrypt a file?",
         "What do the M and ? badges mean?",
-        "How do tabs work?"
+        "How do tabs work?",
+        "How do I set up Apple Intelligence?"
     ]
 }

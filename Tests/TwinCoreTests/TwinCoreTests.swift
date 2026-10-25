@@ -367,6 +367,9 @@ final class TwinCoreTests: XCTestCase {
 
     func testTwinHelpAnswers() {
         XCTAssertTrue(TwinHelp.answer(to: "How do I encrypt a file?").contains("Cmd+Shift+E"))
+        let setup = TwinHelp.answer(to: "How do I set up Apple Intelligence?")
+        XCTAssertTrue(setup.contains("Language & Region"))
+        XCTAssertTrue(setup.contains("must match"))
         XCTAssertTrue(TwinHelp.answer(to: "hur skyddar jag en mapp med behörigheter?").contains("Cmd+I"))
         XCTAssertTrue(TwinHelp.answer(to: "How do I copy to the other pane?").contains("Cmd+5"))
         XCTAssertTrue(TwinHelp.answer(to: "what do git badges mean?").lowercased().contains("git"))

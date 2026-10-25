@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import TwinCore
 
@@ -14,6 +15,12 @@ struct AssistantView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if let guidance = AssistantChat.unavailableGuidance {
+                setupSection(guidance)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                Divider()
+            }
             proactiveSection
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -43,6 +50,36 @@ struct AssistantView: View {
             Button("Close") { dismiss() }
         }
         .padding(14)
+    }
+
+    /// Kom igång-guide when Apple's model isn't available yet.
+    private func setupSection(_ guidance: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(guidance, systemImage: "sparkles")
+                .font(.caption).foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            DisclosureGroup("How to set up Apple's on-device model") {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(AssistantChat.setupSteps.enumerated()), id: \.offset) { step in
+                        HStack(alignment: .top, spacing: 6) {
+                            Text("\(step.offset + 1).").font(.caption.bold()).foregroundStyle(.secondary)
+                            Text(step.element).font(.caption)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Button("Open Siri Settings…") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .controlSize(.small)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
+            }
+            .font(.caption)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Proactive findings for this folder — shown without being asked.

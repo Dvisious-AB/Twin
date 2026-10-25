@@ -40,6 +40,40 @@ final class AssistantChat: ObservableObject {
         return false
     }
 
+    /// Why the model is unavailable, in user language (nil = available).
+    static var unavailableGuidance: String? {
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .available:
+                return nil
+            case .unavailable(.deviceNotEligible):
+                return "This Mac can't run Apple Intelligence (it needs Apple silicon). Twin Help still answers everything locally."
+            case .unavailable(.appleIntelligenceNotEnabled):
+                return "Apple Intelligence is turned off. Turn it on in System Settings — steps below."
+            case .unavailable(.modelNotReady):
+                return "The model isn't ready yet: it downloads automatically once Siri AI is enabled (or your waitlist spot opens)."
+            case .unavailable:
+                return "Apple's model isn't available right now. Twin Help still answers everything locally."
+            }
+        }
+        #endif
+        return "This system has no on-device model. Twin Help still answers everything locally."
+    }
+
+    /// Kom igång: turn on Apple's on-device model for Twin.
+    /// The language rule is the step everyone trips on: the Mac's
+    /// language and Siri's language must match and be supported.
+    static let setupSteps: [String] = [
+        "Open System Settings ▸ Apple Intelligence & Siri (just \"Siri\" in newer macOS).",
+        "Turn on Apple Intelligence / join Siri AI and wait for your spot — the model then "
+            + "downloads automatically (several GB, keep Wi-Fi and power connected).",
+        "Language rule: your Mac's language and Siri's language must match. Set both in "
+            + "System Settings: General ▸ Language & Region, and Siri ▸ Language. Use a "
+            + "supported language (for example English or Svenska).",
+        "Come back here — Twin picks the model up automatically. The status line below then says \"Apple's on-device model\"."
+    ]
+
     // LanguageModelSession when the OS provides it; Any to avoid
     // availability-marked stored properties.
     private var sessionBox: Any?
