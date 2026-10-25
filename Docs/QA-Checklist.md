@@ -62,6 +62,20 @@ testerna körde bara i läsbara mappar. Kontrollera varje release:
 - [ ] Manuellt: sök i en stor riktig mapp (10k+ filer) och avbryt
       med Stop mitt i — appen ska svara direkt
 
+## Gemma assistent-först (2026-10-25)
+
+- [x] Gemma-rad dockad under panelerna: textkommando → plan →
+      Utför. Zip av hel katalog bevisad i `testGemmaBarCreatesZipFromTextCommand`
+      (zipen finns inte på disk före Utför)
+- [x] Gemma-kolumn utfällbar (sidebar-knappen i Gemma-raden);
+      chatten som sheet kvar för frågor från raden
+- [x] Faktafrågor från riktig listning, fokus i frågefältet —
+      `testGemmaFocusAndFolderFacts`
+- [x] Smart sökning med synonymer (cymbal raiser-exemplet) —
+      enhetstester i TwinCore
+- [ ] Manuellt: be Gemma "har jag någon sampling som är en cymbal
+      raiser?" mot ditt riktiga samplebibliotek och bedöm träffarna
+
 ## Kvar före submit
 
 - [x] `Scripts/archive.sh --unsigned` — `ARCHIVE SUCCEEDED` lokalt. Signerad arkivering + hardened runtime kräver aktivt Apple Developer-konto (#7)

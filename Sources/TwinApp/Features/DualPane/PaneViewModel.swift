@@ -546,7 +546,23 @@ final class PaneViewModel: ObservableObject {
     // MARK: - File actions (keyboard-first)
 
     func compressSelected() {
-        let urls = Array(selection)
+        pack(urls: Array(selection))
+    }
+
+    /// Gemma: "skapa en zip av filerna i den här katalogen".
+    /// Packs every item in the current folder (files and folders).
+    @discardableResult
+    func packCurrentFolder() -> String {
+        let urls = items.map(\.url)
+        guard !urls.isEmpty else {
+            lastOperationSummary = "Folder is empty — nothing to pack"
+            return lastOperationSummary ?? ""
+        }
+        pack(urls: urls)
+        return lastOperationSummary ?? "Packed"
+    }
+
+    private func pack(urls: [URL]) {
         guard !urls.isEmpty else { return }
         do {
             let archive = try FileActionService.compress(items: urls, in: currentURL)

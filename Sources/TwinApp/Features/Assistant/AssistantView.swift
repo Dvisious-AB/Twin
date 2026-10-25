@@ -7,6 +7,11 @@ import TwinCore
 /// Apple's on-device model when available, otherwise TwinHelp's rules.
 struct AssistantView: View {
     @ObservedObject var viewModel: PaneViewModel
+    /// Embedded in the main window's Gemma column (not a sheet).
+    var isEmbedded = false
+    var onClose: () -> Void = {}
+    /// A question typed in the docked Gemma bar, sent on appear.
+    var initialQuestion: String?
     @Environment(\.dismiss) private var dismiss
     @StateObject private var chat = AssistantChat()
     @State private var draft = ""
@@ -34,10 +39,15 @@ struct AssistantView: View {
             inputBar
             statusBar
         }
-        .frame(width: 500, height: 640)
+        .frame(width: isEmbedded ? nil : 500, height: isEmbedded ? nil : 640)
         // The question field has focus the moment the assistant
         // opens — start typing immediately, no click needed.
-        .onAppear { inputFocused = true }
+        .onAppear {
+            inputFocused = true
+            if let initialQuestion, !initialQuestion.isEmpty {
+                send(initialQuestion)
+            }
+        }
     }
 
     private var header: some View {
@@ -55,7 +65,7 @@ struct AssistantView: View {
             Spacer()
             Button("Clear") { chat.clear() }
                 .font(.caption)
-            Button("Close") { dismiss() }
+            Button("Close") { isEmbedded ? onClose() : dismiss() }
         }
         .padding(14)
     }

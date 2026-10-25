@@ -42,6 +42,8 @@ struct DualPaneView: View {
     @State private var showHandlersGuide = false
     @State private var showFileSearch = false
     @State private var showDebugLog = false
+    @State private var showGemmaColumn = false
+    @State private var assistantSeed: String?
     @State private var showFirstRunGrant = false
     @State private var showNewFolder = false
     @State private var showRename = false
@@ -419,15 +421,38 @@ struct DualPaneView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-        // NOTE: NavigationStack inside HSplitView collapsed the layout to a
-        // centered band and leaked the folder name as window title — removed.
-        // Each pane keeps its own navigation state in its view model.
-        HSplitView {
-            paneColumn(tabs: leftTabs, side: 0)
-            paneColumn(tabs: rightTabs, side: 1)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-            functionBar
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    // NOTE: NavigationStack inside HSplitView collapsed the layout to a
+                    // centered band and leaked the folder name as window title — removed.
+                    // Each pane keeps its own navigation state in its view model.
+                    HSplitView {
+                        paneColumn(tabs: leftTabs, side: 0)
+                        paneColumn(tabs: rightTabs, side: 1)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    functionBar
+                }
+                if showGemmaColumn {
+                    Divider()
+                    AssistantView(
+                        viewModel: activePane, isEmbedded: true,
+                        onClose: { showGemmaColumn = false }
+                    )
+                    .frame(width: 340)
+                }
+            }
+            // Gemma docked below everything: assistant-first entry,
+            // function bar (TC layer) untouched above her.
+            GemmaBar(
+                pane: activePane,
+                onOpenChat: { question in
+                    assistantSeed = question
+                    showAssistant = true
+                },
+                onRequestDelete: { showDeleteConfirm = true },
+                onToggleColumn: { showGemmaColumn.toggle() }
+            )
         }
         .background(FunctionKeyHandler { handleFunctionKey($0) })
         .onAppear {
@@ -447,7 +472,8 @@ struct DualPaneView: View {
             }
         }
         .sheet(isPresented: $showAssistant) {
-            AssistantView(viewModel: activePane)
+            AssistantView(viewModel: activePane, initialQuestion: assistantSeed)
+                .onDisappear { assistantSeed = nil }
         }
         .sheet(isPresented: $showHandlersGuide) {
             FileHandlersSettingsView()

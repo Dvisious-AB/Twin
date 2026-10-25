@@ -8,6 +8,9 @@ public enum FileSearchService {
     public struct Query: Sendable, Equatable {
         /// Case-insensitive substring for the file name. Empty = any name.
         public var nameText: String = ""
+        /// Alternative name tokens: a hit on ANY token matches.
+        /// Used by Gemma's smart find (synonyms, e.g. riser/raiser).
+        public var nameAnyTokens: [String] = []
         /// Case-insensitive text that must occur in the file.
         /// Empty = don't look inside files. Text-like files only.
         public var contentText: String = ""
@@ -84,6 +87,14 @@ public enum FileSearchService {
             if !nameNeedle.isEmpty,
                !url.lastPathComponent.lowercased().contains(nameNeedle) {
                 continue
+            }
+            if !query.nameAnyTokens.isEmpty {
+                let fileName = url.lastPathComponent.lowercased()
+                let folderName = url.deletingLastPathComponent().lastPathComponent.lowercased()
+                let hit = query.nameAnyTokens.contains {
+                    fileName.contains($0) || folderName.contains($0)
+                }
+                if !hit { continue }
             }
             var snippet: String?
             if !contentNeedle.isEmpty {

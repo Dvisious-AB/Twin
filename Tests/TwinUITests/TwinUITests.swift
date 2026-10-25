@@ -193,7 +193,10 @@ final class TwinUITests: XCTestCase {
             .matching(NSPredicate(format: "title == 'Assistant…'")).firstMatch
         XCTAssertTrue(assistant.waitForExistence(timeout: 60))
         assistant.click()
-        let field = app.textFields.firstMatch
+        // The docked Gemma bar also has a text field now — target
+        // the chat's field by its placeholder, not firstMatch.
+        let field = app.textFields.matching(
+            NSPredicate(format: "placeholderValue BEGINSWITH %@", "Ask how to")).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 60))
         field.click()
         field.typeText("How do I encrypt a file?\n")
@@ -363,7 +366,8 @@ extension TwinUITests {
         XCTAssertTrue(app.staticTexts["Gemma"].waitForExistence(timeout: 15))
         // ...and the question field already has keyboard focus:
         // typing without any click must land in the field.
-        let field = app.textFields.firstMatch
+        let field = app.textFields.matching(
+            NSPredicate(format: "placeholderValue BEGINSWITH %@", "Ask how to")).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         app.typeText("vilken fil tar störst plats?")
         let typed = field.value as? String ?? ""
@@ -373,5 +377,47 @@ extension TwinUITests {
             NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "a-big.bin", "a-big.bin")
         ).firstMatch
         XCTAssertTrue(answer.waitForExistence(timeout: 30))
+    }
+}
+
+extension TwinUITests {
+    // Assistant-first: typing "skapa en zip…" in the docked Gemma
+    // bar shows a plan, Run executes, and the zip lands in the pane.
+    func testGemmaBarCreatesZipFromTextCommand() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinGemmaFixture")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try "one".write(to: folder.appendingPathComponent("one.txt"), atomically: true, encoding: .utf8)
+        try "two".write(to: folder.appendingPathComponent("two.txt"), atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        let encoded = folder.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? folder.path
+        let deepLink = try XCTUnwrap(URL(string: "twin://open?path=\(encoded)"))
+        terminateStrayTwins()
+        var delivered = false
+        for _ in 0..<5 where !delivered {
+            delivered = NSWorkspace.shared.open(deepLink)
+            if !delivered { Thread.sleep(forTimeInterval: 1) }
+        }
+        XCTAssertTrue(delivered)
+        let oneText = app.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@", "one.txt", "one.txt")).firstMatch
+        XCTAssertTrue(oneText.waitForExistence(timeout: 15))
+
+        // Restored windows can duplicate the bar.
+        let field = app.textFields["gemmaBarField"].firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.click()
+        field.typeText("skapa en zip av filerna i den här katalogen\n")
+        // Plan first — nothing executed yet.
+        let runButton = app.buttons["gemmaRunButton"].firstMatch
+        XCTAssertTrue(runButton.waitForExistence(timeout: 10))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Archive.zip").path))
+        runButton.click()
+        // The zip appears in the listing and on disk.
+        let zipText = app.staticTexts.matching(
+            NSPredicate(format: "label == %@ OR value == %@", "Archive.zip", "Archive.zip")).firstMatch
+        XCTAssertTrue(zipText.waitForExistence(timeout: 20))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Archive.zip").path))
     }
 }

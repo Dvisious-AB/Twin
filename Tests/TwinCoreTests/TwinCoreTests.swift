@@ -644,3 +644,46 @@ final class TwinLanguageTests: XCTestCase {
         XCTAssertTrue(TwinHelp.answer(to: "zz unknown topic", languageCode: "de").contains("I answer"))
     }
 }
+
+final class AssistantIntentTests: XCTestCase {
+    func testIntentParsing() {
+        XCTAssertEqual(AssistantIntent.parse("skapa en zip av filerna i den här katalogen"), .packCurrentFolder)
+        XCTAssertEqual(AssistantIntent.parse("packa de markerade filerna"), .packSelection)
+        XCTAssertEqual(AssistantIntent.parse("organisera den här mappen"), .organizeFolder)
+        XCTAssertEqual(AssistantIntent.parse("vilken fil är störst?"), .largestFile)
+        XCTAssertEqual(AssistantIntent.parse("skapa mapp Kvittos 2026"), .createFolder("Kvittos 2026"))
+        XCTAssertEqual(AssistantIntent.parse("create folder Invoices"), .createFolder("Invoices"))
+        XCTAssertEqual(AssistantIntent.parse("radera de markerade filerna"), .deleteSelection)
+        XCTAssertEqual(AssistantIntent.parse("hitta cymbal"), .find("cymbal"))
+        XCTAssertEqual(AssistantIntent.parse("How do I encrypt a file?"), .chat)
+        XCTAssertEqual(AssistantIntent.parse(""), .chat)
+    }
+}
+
+final class AssistantFindTests: XCTestCase {
+    func testRequestBuildsSynonymGroups() {
+        let req = AssistantFind.request(from: "har jag någon sampling på min dator som är en cymbal raiser?")
+        XCTAssertTrue(req.wantsAudio)
+        XCTAssertEqual(req.groups.count, 2)
+        XCTAssertTrue(req.groups.contains { $0.contains("cymbal") })
+        XCTAssertTrue(req.groups.contains { $0.contains("riser") })
+    }
+
+    func testSearchRanksBothGroupsFirst() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TwinFind-\(UUID().uuidString)")
+        let pack = root.appendingPathComponent("My Samples")
+        try FileManager.default.createDirectory(at: pack, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for name in ["Cymbal Riser 01.wav", "Crash Hit.wav", "Kick Deep.wav", "notes.txt"] {
+            try Data(count: 64).write(to: pack.appendingPathComponent(name))
+        }
+        let req = AssistantFind.request(from: "har jag någon sampling som är en cymbal raiser?")
+        let results = AssistantFind.search(in: [root], request: req)
+        XCTAssertEqual(results.first?.match.url.lastPathComponent, "Cymbal Riser 01.wav")
+        XCTAssertEqual(results.first?.matchedGroups, 2)
+        // Kick matches no group; notes.txt matches no group.
+        XCTAssertFalse(results.contains { $0.match.url.lastPathComponent == "Kick Deep.wav" })
+        XCTAssertFalse(results.contains { $0.match.url.lastPathComponent == "notes.txt" })
+    }
+}
