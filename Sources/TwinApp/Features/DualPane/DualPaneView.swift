@@ -43,6 +43,7 @@ struct DualPaneView: View {
     @State private var showFileSearch = false
     @State private var showDebugLog = false
     @State private var showGemmaColumn = false
+    @State private var compactFunctionChip = false
     @State private var assistantSeed: String?
     @State private var showFirstRunGrant = false
     @State private var showNewFolder = false
@@ -80,50 +81,77 @@ struct DualPaneView: View {
     /// a silently scrolling bar hid Delete/Sync from TC users).
     private var functionBar: some View {
         HStack(spacing: 8) {
-            Text(activePane.currentURL.lastPathComponent)
-                .font(.caption.bold())
-                .lineLimit(1)
-            Image(systemName: "arrow.right")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text(inactivePane.currentURL.lastPathComponent)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            // Folder pair as one soft chip: where files go, at a glance.
+            HStack(spacing: 5) {
+                Image(systemName: "folder.fill").foregroundStyle(.secondary)
+                Text(activePane.currentURL.lastPathComponent)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                if !compactFunctionChip {
+                    Image(systemName: "arrow.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Text(inactivePane.currentURL.lastPathComponent)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
+            .overlay(Capsule().stroke(Color(nsColor: .separatorColor), lineWidth: 0.5))
             Spacer()
-            Button("F5 Copy") { activePane.startCopy(to: inactivePane.currentURL) }
+            Button { activePane.startCopy(to: inactivePane.currentURL) } label: {
+                Label("F5 Copy", systemImage: "doc.on.doc")
+            }
             .keyboardShortcut("5", modifiers: .command)
             .disabled(activePane.selection.isEmpty)
-            Button("F6 Move") { activePane.startMove(to: inactivePane.currentURL) }
+            Button { activePane.startMove(to: inactivePane.currentURL) } label: {
+                Label("F6 Move", systemImage: "arrow.right.doc.on.clipboard")
+            }
             .keyboardShortcut("6", modifiers: .command)
             .disabled(activePane.selection.isEmpty)
             Divider().frame(height: 16)
-            Button("F3 View") { activePane.viewSelected() }
+            Button { activePane.viewSelected() } label: {
+                Label("F3 View", systemImage: "eye")
+            }
                 .disabled(activePane.selection.isEmpty)
                 .help("View selected file in Twin Viewer (F3)")
-            Button("Edit") { activePane.editSelected() }
+            Button { activePane.editSelected() } label: {
+                Label("Edit", systemImage: "square.and.pencil")
+            }
                 .keyboardShortcut("e", modifiers: .command)
                 .disabled(activePane.selection.isEmpty)
                 .help("Edit selected file (F4 / Cmd+E)")
-            Button("Pack") { activePane.compressSelected() }
+            Button { activePane.compressSelected() } label: {
+                Label("Pack", systemImage: "archivebox")
+            }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(activePane.selection.isEmpty)
                 .help("Compress to .zip (Alt+F5 / Cmd+Shift+C)")
-            Button("New Folder") { newName = "New Folder"; showNewFolder = true }
+            Button { newName = "New Folder"; showNewFolder = true } label: {
+                Label("New Folder", systemImage: "folder.badge.plus")
+            }
                 .keyboardShortcut("7", modifiers: .command)
                 .help("New folder (F7 / Cmd+7)")
-            Button("Rename") {
+            Button {
                 newName = activePane.selection.first?.lastPathComponent ?? ""
                 showRename = true
+            } label: {
+                Label("Rename", systemImage: "character.cursor.ibeam")
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(activePane.selection.count != 1)
             .help("Rename selected (Shift+F6 / Cmd+Shift+R)")
-            Button("Delete") { showDeleteConfirm = true }
+            Button(role: .destructive) { showDeleteConfirm = true } label: {
+                Label("Delete", systemImage: "trash")
+            }
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(activePane.selection.isEmpty)
                 .help("Move to Trash (F8 / Cmd+Delete)")
-            Menu("More") {
+            Menu {
+
                 Button("MD5") { activePane.createMD5ForSelected() }
                     .disabled(activePane.selection.isEmpty)
                 Button("Encrypt / Decrypt…") { showEncryptPrompt = true }
@@ -163,15 +191,31 @@ struct DualPaneView: View {
                 Button("File Type Handlers…") { showHandlersGuide = true }
                 Button("Assistant…") { showAssistant = true }
                 Button("Debug Log…") { showDebugLog = true }
+            } label: {
+                Label("More", systemImage: "ellipsis.circle")
             }
             .help("More actions")
         }
         // Docked full-width bar: folder pair pinned left, actions
         // pinned right via the Spacer — also in fullscreen.
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.size.width) { _, width in
+                        compactFunctionChip = width < 1040
+                    }
+                    .onAppear { compactFunctionChip = proxy.size.width < 1040 }
+            }
+        )
+        .buttonStyle(.bordered)
+        .controlSize(.small)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color(nsColor: .controlBackgroundColor))
+        .padding(.vertical, 7)
+        .background(.bar)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5)
+        }
     }
 
     private func paneColumn(tabs: PaneTabs, side: Int) -> some View {

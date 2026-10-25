@@ -41,16 +41,41 @@ struct GemmaBar: View {
             }
             HStack(spacing: 10) {
                 GemmaRobotView(state: isBusy ? .thinking : .idle, size: 32)
-                TextField(
-                    isSwedish
-                        ? "Skriv till Gemma… t.ex. ”skapa en zip av filerna i den här katalogen”"
-                        : "Write to Gemma… e.g. “create a zip of the files in this folder”",
-                    text: $text
+                    .padding(3)
+                    .background(Circle().fill(Color.accentColor.opacity(0.12)))
+                HStack(spacing: 7) {
+                    Image(systemName: "sparkles")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField(
+                        isSwedish
+                            ? "Skriv till Gemma… t.ex. ”skapa en zip av filerna i den här katalogen”"
+                            : "Write to Gemma… e.g. “create a zip of the files in this folder”",
+                        text: $text
+                    )
+                    .textFieldStyle(.plain)
+                    .focused($fieldFocused)
+                    .accessibilityIdentifier("gemmaBarField")
+                    .onSubmit(submit)
+                    if !text.isEmpty {
+                        Button {
+                            text = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule().fill(Color(nsColor: .textBackgroundColor))
                 )
-                .textFieldStyle(.roundedBorder)
-                .focused($fieldFocused)
-                .accessibilityIdentifier("gemmaBarField")
-                .onSubmit(submit)
+                .overlay(
+                    Capsule().stroke(
+                        fieldFocused ? Color.accentColor.opacity(0.55) : Color(nsColor: .separatorColor),
+                        lineWidth: fieldFocused ? 1.4 : 0.7)
+                )
                 if let pending {
                     Button(isSwedish ? "Avbryt" : "Cancel") {
                         self.pending = nil
@@ -75,8 +100,10 @@ struct GemmaBar: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
         }
-        .background(Color(nsColor: .controlBackgroundColor))
-        .overlay(alignment: .top) { Divider() }
+        .background(.bar)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 0.5)
+        }
         // Cmd+K jumps to Gemma from anywhere in the window.
         .background(
             Button("") { fieldFocused = true }
